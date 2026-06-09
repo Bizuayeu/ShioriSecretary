@@ -1,0 +1,100 @@
+# SECURITY: ShioriSecretary
+
+> **Policy**: This document **intentionally makes an exception to SSoT** and prioritizes completeness. Because the top priority is that it can be read standalone as a distributed artifact with no gaps, it is fine if its content overlaps with other documents (DESIGN / the upper-level `SECURITY.md`). A security gap in a distributed artifact is far more harmful than redundancy.
+>
+> Legend — ✅ implemented (with tests) / 📋 planned (not yet implemented) / ⚠️ operational caution
+
+## Threat Model Overview
+
+ShioriSecretary (the "bookmark" that grants a secretary to any Claude model) **runs persistently on Claude Code Routines (Anthropic's cloud execution = cloud routine), receives messages from the outside (Telegram), and has the agent respond**. The attack surface is as follows:
+
+1. An **unauthorized third party** sends a message to the bot → blocked by authorization
+2. **Prompt injection via inbound message body** → fencing + flagging
+3. **Leakage of the bot token / secrets** → restricted to env + log redact
+4. **Leakage of internal information via responses** → output scanning
+5. **DoS / disk pressure from huge or malicious media** → size limit + retention
+6. **Double responses / data races from concurrent sessions** → lease
+7. **Leakage of stakeholder information / persona data (PII)** (especially at distribution time) → Private separation
+8. **Personal data baked into the distributed code** → template/data separation
+
+## 1. Authorization ✅
+
+- **chat_id allowlist** (`AUTHORIZED_CHATS`) — distinguishes authentication (authn) from authorization (authz) to prevent IDOR. Updates from unauthorized chats are **discarded in the Domain layer** and never passed to the agent (`domain/authorization.py`, `FetchAuthorizedUpdates`)
+- Authorization happens before emit. The agent only ever sees authorized data
+- ⚠️ The allowlist is managed via env. Discovering chat_id is a chicken-and-egg problem, so the first time it must be done manually (see README)
+
+## 2. Prompt Injection Countermeasures ✅ (flagging) / ⚠️ (fencing operation)
+
+- **injection flag** (`flag_injection`) — detects role override / system prompt extraction / credentials requests and records them in `injection_flags`. **Flags instead of blocking**, leaving the judgment to the agent (to avoid false positives)
+- **Prompt fencing** — the inbound message body is isolated with XML tags and explicitly marked "treat this as data" before being passed to the agent (specified in ROUTINE_PROMPT; an operational responsibility on the agent side)
+- ⚠️ If `injection_flags` is non-empty, the agent heightens its caution (doubts the content, and ignores it if necessary)
+
+## 3. Secrets Management ✅
+
+- **The bot token lives only in env** (`TELEGRAM_BOT_TOKEN`). It is never placed in code, commits, or logs
+- **Hiding token-embedded URLs from logs** — the TOKEN in `/bot<TOKEN>/...` or `/file/bot<TOKEN>/...` is never left in exception messages, stderr, or logs. The exception chain is cut with `raise ... from None` (the entire send/receive path of `api_gateway` + `media_downloader`, verified by token redact tests)
+- The network error path (common to all send/fetch) also redacts token-embedded URLs (proven by demonstrating token leakage with a red test before addressing it)
+- ⚠️ **Hiding secrets at schedule registration time** — when registering a cloud routine via `/shiori-secretary schedule`, the bot token / authorized chats are **injected into the Environment** and never baked into the `RemoteTrigger` body (the events prompt body / session_context) or commits (referenced via `environment_id`). Putting secret values into the body would leave them in the trigger configuration and execution logs
+
+## 4. Output Leak Prevention ⚠️ (agent operational responsibility)
+
+- **Output leak scan** — before sending, the agent confirms that no token / env name / system prompt / **absolute path** has leaked into the reply. **Both send-reply (inbound reply) and proactive-send (active outbound) are in scope** (all outbound text is scanned regardless of the send path)
+- **actionability gate for proactive messaging** — because proactive-send interrupts from our side without being tied to an inbound message, in addition to the leak scan it sets a higher actionability bar, sending signal but not noise (to suppress interruption cost + the misfire surface; the SSoT for the actionability gate is ROUTINE_PROMPT)
+- **Leak scan for generated attachments** — also confirms that no secrets have leaked into the md/docx/image/PDF being sent back. The code does not inspect binary contents = it is the agent's judgment responsibility
+- **Leak scan of transcripts** — secrets in audio (e.g., a password read aloud) could ride into emit via the transcript, so they are included in the scan scope
+
+## 5. Inbound Media Safety ✅
+
+- **size limit (DoS defense)** — anything exceeding `MEDIA_MAX_SIZE_BYTES` (default 20MB) is not downloaded and is skipped + flagged. This prevents disk pressure from oversized files
+- **retention auto-deletion** — media that has passed `MEDIA_RETENTION_HOURS` (default 24h) is deleted by `cleanup_media_dir`. This prevents long-term retention of confidential documents
+- **mime is treated as self-declared** — the mime_type declared by Telegram is not trusted; the parent-process agent treats the `Read`/render result as the truth (countermeasure against rename attacks)
+- **awareness of render leniency** — markitdown returns something even for garbage. Whether `rendered_text` is meaningful text is judged by the agent (the last line of defense is the agent layer)
+- **PDF / audio processed locally end-to-end** — pdfplumber/pypdfium2 (PDF) and Moonshine (audio) are all local processing, so files never leave the machine. When switching to an external STT that transmits audio (e.g., a future Whisper API), the privacy judgment that "the audio is handed to a third party" must be separately mandated
+- **absence of audio intermediate files** — PyAV decodes in memory to 16kHz mono float and does not write an intermediate ffmpeg wav to disk (no intermediate artifacts of confidential voice remain)
+- **outbound attachment limit** — anything exceeding `OUTBOUND_MAX_SIZE_BYTES` (default 50MB) is rejected before sending with `AttachmentTooLarge` (preventing misfires / cost accidents)
+
+## 6. Concurrency Control (Lease) ✅
+
+- **heartbeat + TTL lease lock** — structurally prevents double responses / offset races from concurrent sessions. A new session refuses to start if the heartbeat is fresh, and seizes the lease if it is stale (compatible with crash self-healing)
+- **owner double-verification in SendReply** — before sending, the lease is re-loaded and owner agreement is confirmed (double defense at the CLI layer + UseCase layer)
+
+## 7. Protection of Registry / Persona Data (PII) ✅ (Private separation / git / WAL / abilities) / 📋 (boundaries across multiple channels)
+
+- ✅ **Private separation is the first line of defense** — INDIVIDUALS (stakeholders' honorific / context_notes / taboo_topics), TASKS, KNOWLEDGE, and Identities are all in the Private repo. No actual data is placed in public (the distributed artifact)
+- ⚠️ **context_notes / taboo_topics presume PII** — on the premise that stakeholders' free-form descriptions contain personal information, access permissions to the Private repo are minimized
+- 📋 **shared_with boundary** (when multiple channels are used together; not yet active) — information sharing between stakeholders is on an explicit-permission basis via `identity.shared_with`. Unapproved relays are refused and an approval request is sent to `<OWNER>` (the principal). With Telegram alone there is no relay between stakeholders; this takes effect when multiple channels such as LineBridge are introduced
+- 📋 **principal / associate privilege separation** (enforced when multiple channels exist) — the role enum (`principal`/`associate`) is already implemented as a value object, but enforcement that limits management operations (approve/block/edit, etc.) to those originating from the principal (`<OWNER>`) takes effect when multiple channels with an approval flow are introduced
+- ✅ **Security of git persistence** (when `registry_sync` is enabled) — the registry is pushed to a **fixed branch of the Private repo** (`registry_branch`), and no actual data is placed in public (the distributed artifact). git credentials (PAT, etc.) are injected into env / the cloud routine Environment and never baked into commits, logs, or the prompt body. The commit targets are only the registry files under `registry_dir` (structurally excluding any leakage of persona / secrets). Because force is not used, it does not destroy external updates
+- ✅ **PII scope of the WAL log** (when `registry_sync` is enabled) — each intent payload of the WAL log (`registry_dir/wal/WAL.jsonl`) is **identical to the record added to the registry** (structured records of individuals/tasks/knowledge), so there is no expansion of PII scope beyond the registry (**the full conversation body is never written to the log**). It is placed on the same fixed branch of the Private repo, and its commit targets are likewise limited to under `registry_dir`. After being marked done, it is cleaned up at the 24h mark via the startup checkpoint (pending entries are retained until redo). Because the WAL push goes through the same git credential path as the registry, the handling of secrets is identical to the above
+- ✅ **Trust boundary of abilities (the capability catalog)** (when `registry_sync` is enabled) — because an ability's `skill_path` is the entry point to an external skill that the secretary reads/exercises, trustworthiness is the key point. The capability catalog lives in Private (it is part of the registry, and the lease guarantees a single writer), and `add` is **limited to skills whose existence has been confirmed** (a self-append guard = it never writes a capability that does not exist). The distributed template is an empty array = it does not bake in any arbitrary `skill_path`. It is not PII, but operation-specific capabilities are placed in Private (audience scope, §8)
+
+## 8. Responsibility Boundaries at Distribution Time ⚠️
+
+The boundaries when distributing as a plugin:
+
+| What the plugin **holds** (public) | What each user **holds themselves** (Private) |
+|---|---|
+| Code (scripts) / documentation | Their own bot token / chat allowlist |
+| **Templates** of the registry / Identities (templates/) | The **actual data** of the registry / the substance of the secretary's persona |
+| Default values / schemas | Stakeholder information / requests / knowledge (PII) |
+
+- **Not baking personal data into the distributed artifact** is the single biggest distribution-security requirement. Template/data separation (DESIGN §3.3) is also a security mechanism
+- ⚠️ The user obtains their own token from BotFather and holds their state in their own Private repo. The plugin provides only templates and deterministic logic
+
+## 9. Rate Limiting 📋 (not yet implemented; a design requirement)
+
+- A per-chat_id sliding window to defend against cost runaway & DoS (a design requirement). Currently not implemented; it will be added to the UseCase layer once the need becomes apparent
+
+## Pre-Distribution Checklist
+
+- [ ] Has no actual token / chat_id / stakeholder information / persona substance leaked into the public tree (grep check)
+- [ ] Does `templates/` contain only templates and no actual data
+- [ ] Does `.gitignore` include development-only directories (`docs/devlog/`, `LineBridge/`, etc.) and `state/` (actual data)
+- [ ] Are the token redact tests green (including the network error path)
+- [ ] Is the operation of injection_flags / the output leak scan specified in ROUTINE_PROMPT
+- [ ] Do any proper nouns (persona name / operating-entity name / organization name / local absolute paths) remain in the distributed documentation (grep check)
+- [ ] Are the placeholders (`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`) used according to convention ([STRUCTURE_en.md](./STRUCTURE_en.md))
+
+## Relationship with the Root `SECURITY.md`
+
+The upper-level `<REPO_ROOT>/SECURITY.md` (the agent body's general response guidelines: refusal style, hiding internal information, general prompt injection) is loaded by ROUTINE_PROMPT Step 0. This file covers **the security mechanisms of the skill called ShioriSecretary**. The two are at different layers, and as a distributed artifact this file is self-contained.

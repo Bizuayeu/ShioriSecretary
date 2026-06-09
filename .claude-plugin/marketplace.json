@@ -1,0 +1,34 @@
+{
+  "name": "shiori-secretary",
+  "description": "ShioriSecretary — Claude のモデルに秘書を授ける魔法の栞（サーバーレス AI 秘書）",
+  "version": "1.2.1",
+  "owner": {
+    "name": "Weave",
+    "email": "noreply@github.com"
+  },
+  "pluginRoot": ".",
+  "plugins": [
+    {
+      "name": "ShioriSecretary",
+      "source": ".",
+      "description": "魔法の栞——Opus/Fable/Mythos に秘書機能を持たせるサーバーレス AI 秘書。Telegram Bot API を cloud routine 上で常駐させ、認可済みチャットに秘書エージェント（SecretaryRole）が即応する対話チャネル（追加 API 課金なし・専用サーバ不要）",
+      "version": "1.2.1",
+      "author": {
+        "name": "Weave @ ShioriSecretary"
+      },
+      "homepage": "https://note.com/weave_ai",
+      "repository": "https://github.com/Bizuayeu/ShioriSecretary",
+      "license": "MIT",
+      "keywords": [
+        "shiori",
+        "secretary",
+        "serverless",
+        "telegram",
+        "bot",
+        "cloud-routine",
+        "clean-architecture",
+        "media-understanding"
+      ]
+    }
+  ]
+}

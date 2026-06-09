@@ -1,0 +1,190 @@
+# STRUCTURE: ShioriSecretary の構造地図
+
+「どこに何を置くか」の正典。設計の why は [DESIGN.md](./DESIGN.md)。
+
+> ShioriSecretary（モデルに秘書を授ける"栞"）の物理配置。「栞」は薄く可搬であるべく、public（配布コード）と Private（人格・データ）を物理分離する——以下の境界がその実装。
+
+## プレースホルダ規約
+
+配布物のドキュメント・テンプレートで使う山括弧トークンは、利用者が自分の値へ置換する：
+
+| プレースホルダ | 意味 | 例 |
+|---|---|---|
+| `<AGENT_NAME>` | 秘書エージェントの人格名 | あなたの AI 秘書の呼称 |
+| `<OWNER>` | 運用主体（principal） | あなた自身 |
+| `<ORGANIZATION>` | 組織名 | 所属企業・チーム |
+| `<REPO_ROOT>` | リポジトリルート | クローン先のルート |
+| `<BASE_REPO>` | 基本設定リポ名（cloud routine が cwd 親に並列 clone する基本設定リポ。`schedule` が `sources` から実値置換） | `my-config-repo` |
+| `<PRIVATE_DIR>` | 非公開データ・人格定義の配置先（cloud routine では cwd 親起点の相対） | `my-private-repo/ShioriSecretary` |
+| `<INSTALL_DIR>` | インストール先パス | ShioriSecretary 配置先 |
+| `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `TELEGRAM_SECRETARY_STATE_DIR` |
+| `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/ts-registry` の独立 git worktree、root 直下に4管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10） | config.json `registry_dir`（推奨 `ts-registry-wt`、未設定なら `<state_dir>`） |
+
+`SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](./templates/SecretaryRole.template.md)。
+
+**運用設定は config.json に集約**: `agent_name` / `private_dir` / `session_duration_sec` / `registry_sync` / `registry_dir` / `registry_branch` は手置換せず `<INSTALL_DIR>/config.json`（`.gitignore` 除外、雛型 `templates/config.template.json`、`init-config` 生成）に置く。ROUTINE_PROMPT は Step 0 でこれを読み、`<INSTALL_DIR>` は bootstrap が env 解決する（運用値の手置換は不要）。秘匿（bot token / authorized chats）＋ `state_dir` は env、非秘匿の運用設定は config.json が単一正典（**純2層**）。
+
+## 全体像（3区分）
+
+| 区分 | git | 中身 |
+|---|---|---|
+| **public（配布物）** | marketplace プラグインとして公開 | scripts（コード）・ドキュメント・テンプレート（雛型） |
+| **Private（実体）** | 別の非公開リポ（`<PRIVATE_DIR>`） | 人格実体・管理表実データ・運用 state |
+| **除外（開発専用・実体）** | `.gitignore` | 開発専用ディレクトリ（`docs/devlog/`・`LineBridge/`）・生成物・`state/`・`config.json`（運用設定の実体。雛型 `templates/config.template.json` は配布対象） |
+
+**鉄則**: public には個人情報・人格を一切焼き込まない。実体はすべて Private。これが配布可能性の担保。
+
+## public ツリー（`<INSTALL_DIR>/`）
+
+```
+ShioriSecretary/
+├── .claude-plugin/
+│   └── plugin.json           # marketplace マニフェスト（name/version/keywords）
+├── README.md                 # 入口インデックス
+├── DESIGN.md                 # 設計正典（why）
+├── STRUCTURE.md              # 本ファイル（where）
+├── SECURITY.md               # 網羅的セキュリティ正典
+├── ROUTINE_PROMPT.md         # cloud routine prompt body
+├── CHANGELOG.md              # 変更履歴
+├── bootstrap.sh
+├── pyproject.toml
+├── .gitignore
+│
+├── commands/
+│   └── shiori-secretary.md # /shiori-secretary 管理パネル入口
+│
+├── skills/
+│   └── shiori-secretary/
+│       └── SKILL.md          # スキルマニフェスト（仕様 SSoT）
+│
+├── templates/                # 雛型のみ（実データは Private）
+│   ├── config.template.json   # 運用設定の雛型（実体は <INSTALL_DIR>/config.json、.gitignore）
+│   ├── env.example            # 環境変数の雛型
+│   ├── INDIVIDUALS.template.json
+│   ├── TASKS.template.json
+│   ├── KNOWLEDGE.template.json
+│   ├── ABILITIES.template.json
+│   └── SecretaryRole.template.md
+│
+├── scripts/                  # Clean Architecture 4層
+│   ├── main.py               # CLI entrypoint（subcommands）
+│   ├── domain/               # 純粋ロジック・値オブジェクト
+│   │   ├── models.py / media.py / outbound.py / exceptions.py
+│   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
+│   │   └── registry.py       # 管理表 値オブジェクト（Individual / Identity / Task / Knowledge / Ability）
+│   ├── usecases/             # オーケストレーション + Port
+│   │   ├── ports.py          # Port 定義（Store 群含む）
+│   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
+│   │   ├── fetch_authorized_updates.py / send_reply.py
+│   │   ├── proactive_send.py    # 能動送信（send-reply から OffsetStore 依存を除いた姉妹 UseCase・offset 非干渉）
+│   │   ├── download_authorized_media.py / render_authorized_media.py
+│   │   ├── manage_registry.py # 管理表 CRUD UseCase
+│   │   └── wal.py            # WAL UseCase（AppendWalIntent / PushWalLog / RedoPendingIntents）
+│   ├── adapters/
+│   │   ├── media_failure.py  # render/transcribe 共通の失敗ログ + redact ヘルパ
+│   │   ├── telegram/         # api_gateway / media_downloader
+│   │   ├── state/            # json_state_store / emitter
+│   │   ├── render/ transcribe/ audio/   # markitdown / pdf / moonshine / ffmpeg
+│   │   ├── registry/         # json_registry_store
+│   │   └── wal/              # jsonl_wal_log_store（WAL ログの JSONL 永続化）
+│   ├── infrastructure/
+│   │   ├── config.py / media_cleanup.py
+│   │   ├── composition.py    # Composition Root（load_config / build_media_stack）
+│   │   ├── exit_codes.py     # 終了コード（0/1/2/3/4）の SSoT
+│   │   ├── registry_cli.py   # 管理表 CRUD の CLI 配線
+│   │   ├── wal_cli.py        # WAL の CLI 配線（wal-append / wal-push / wal-redo）
+│   │   └── archive_rotate.py # 日付Archive（TASKS/INDIVIDUALS）+ カテゴリ分割（KNOWLEDGE）
+│   └── tests/                # 全層のテスト（配布物として公開）
+│
+└── （docs/devlog/・LineBridge/ は .gitignore 除外＝開発リポのみ、配布物には含まれない）
+```
+
+## Private ツリー（`<PRIVATE_DIR>` 配下）
+
+```
+<Private root>/
+├── Identities/                       # 人格定義（無いと人格的に振る舞えない）
+│   └── SecretaryRole.md              # SecretaryRole の存在論・対応原則（人格定義）
+│
+├── <state_dir>/                      # 揮発 state（消えてよい・git 非対象）
+│   ├── offset.json / lease.json      # Telegram ~24h 保持・lease 再取得で復元
+│   └── media/                        # 受信メディア（retention で自動削除）
+│
+└── <registry_dir>/                   # 永続管理表（git 永続化・消えると困る蓄積）
+    ├── README.md                     # 蓄積データのユーザ用インデックス（生成物）
+    ├── individuals/
+    │   ├── INDIVIDUALS.json           # 現役（SSoT）
+    │   └── archive/INDIVIDUALS_<YYYY-MM>.json
+    ├── tasks/
+    │   ├── TASKS.json
+    │   └── archive/TASKS_<YYYY-MM>.json
+    ├── knowledge/
+    │   ├── KNOWLEDGE.json             # 小規模時は単一
+    │   ├── <category>.json            # 肥大化時はカテゴリ分割（archive せず蓄積）
+    │   └── archive/                   # （原則空。明示的廃棄時のみ）
+    ├── abilities/
+    │   └── ABILITIES.json             # 能力カタログ（trigger/skill_path/guidance、WAL 対象）
+    ├── wal/
+    │   └── WAL.jsonl                  # WAL（言行一致の intent log＋直近24h短期記憶、registry_sync 有効時）
+    └── artifacts/                     # 秘書の成果物層（非定型・スキーマレス、§3.10）。蓄積が本質ゆえ永続
+        └── <成果物>.{json,md} …       # 構成・命名・索引は秘書判断（CRUD/WAL/スキーマを持たない＝重要度の世界）
+```
+
+> **揮発/永続の分離**: `state_dir`（offset/lease/media）は消えてよい揮発データ、`registry_dir`（管理表）は蓄積が本質ゆえ git で永続化する。`registry_dir` 未設定時は `state_dir` にフォールバック（後方互換）。`Identities/` と各 dir の `<PRIVATE_DIR>` 内の正確な親パスは利用者が決定する（state_dir は env、registry_dir は config.json）。
+
+## どこに何を作るか（早見表）
+
+| 作るもの | 配置 | 区分 |
+|---|---|---|
+| 運用設定 config.json | `<INSTALL_DIR>/config.json`（`.gitignore`） | 実体（除外） |
+| 関係者データ INDIVIDUALS.json | `<registry_dir>/individuals/` | Private（永続） |
+| 依頼データ TASKS.json | `<registry_dir>/tasks/` | Private（永続） |
+| 対応知 KNOWLEDGE.json（→category 分割） | `<registry_dir>/knowledge/` | Private（永続） |
+| 能力カタログ ABILITIES.json | `<registry_dir>/abilities/` | Private（永続） |
+| 成果物（非定型 md/json） | `<registry_dir>/artifacts/`（ツリー同期・§3.10） | Private（永続・**重要度の世界**） |
+| 秘書人格 SecretaryRole.md | `<Private>/Identities/` | Private |
+| 各管理表・秘書人格の雛型 | `templates/` | public |
+| 管理表の値オブジェクト | `scripts/domain/registry.py` | public |
+| 管理表 CRUD ロジック | `scripts/usecases/manage_registry.py` + Port | public |
+| 管理表の JSON 永続化 | `scripts/adapters/registry/json_registry_store.py` | public |
+| Archive / カテゴリ分割 | `scripts/infrastructure/archive_rotate.py` | public |
+
+## データフロー
+
+```
+[起動] bootstrap → エージェント人格ロード（本体 Identity / Instruction / UserIdentity）
+                 → Identities/SecretaryRole.md を重ねる（SecretaryRole 起動）
+                 → registry-sync（registry_sync 有効時、固定ブランチから管理表を fetch）
+                 → lease acquire → watch 起動
+
+[受信] Telegram → fetch → 認可 → 正規化 → media download/render → emit(JSON Lines)
+        → エージェント（SecretaryRole）が読む
+
+[判断] エージェントが文脈で判断（重要度の世界）:
+        - 関係者を INDIVIDUALS に登録/更新すべきか
+        - 依頼を TASKS に起票/進捗更新すべきか
+        - 対応知を KNOWLEDGE に残すべきか
+        - ABILITIES に依頼へ使える能力があるか（応答前に引く）／実在を確認した能力を残すべきか
+        → 該当する CLI subcommand を呼ぶ（決定論 I/O）
+        → registry_sync 有効なら commit&push（イベント駆動・non-ff は rebase で取り込み・force 不使用）
+
+[応答] 登録系の返信は先に WAL 先行書込（registry_sync 有効時、言行一致）:
+        wal-append（intent pending）→ wal-push（must-succeed、失敗なら送信中止）
+        → registry add → エージェント起草 → 出力漏洩スキャン → send-reply（必要なら --file/--reply-to）
+        ※起動時 wal-redo が前回 push 漏れの intent を registry へ反映（registry-sync 直後）
+
+[能動発信] grant された自由時間の不定期 push（proactive-send、offset 非干渉）:
+        エージェント起草 → 出力漏洩スキャン → proactive-send（--update-id を付けない＝offset を触らない）
+        ※proactive-send が WAL ライフサイクル（append→push→送信→settle→push）を内包する（registry_sync
+          有効時）。送信成功分は即 done 化＝次回再送しない（happy-path settle）。送信成功↔done の窓で
+          クラッシュした分のみ起動時 wal-redo が元時刻＋中立プレフィックスで1回再送→即done（DESIGN §3.9）
+
+[保守] 肥大化対策（重要度の世界＝エージェント判断、DESIGN §3.5）:
+        エージェントが「いつ・どの単位で」を判断し archive_rotate の純関数 + JsonRegistryStore で実行
+        — TASKS/INDIVIDUALS は日付 Archive、KNOWLEDGE/ABILITIES は category 分割。決定論的自動実行は持たない
+        state README を再生成（件数・最終更新・分割状況）
+```
+
+## `/shiori-secretary` ラップ（操作の入口）
+
+管理表 CRUD の全インターフェース（`individuals|tasks|knowledge|abilities list|get|add|remove`）は、マスタースキル `/shiori-secretary` の管理パネル経由でアクセスできる。エージェントも人間ユーザーも、コマンド名を覚えずに `/shiori-secretary` から操作に到達する。
