@@ -20,7 +20,7 @@
 | `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `TELEGRAM_SECRETARY_STATE_DIR` |
 | `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/ts-registry` の独立 git worktree、root 直下に4管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10） | config.json `registry_dir`（推奨 `ts-registry-wt`、未設定なら `<state_dir>`） |
 
-`SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](./templates/SecretaryRole.template.md)。
+`SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md)。
 
 **運用設定は config.json に集約**: `agent_name` / `private_dir` / `session_duration_sec` / `registry_sync` / `registry_dir` / `registry_branch` は手置換せず `<INSTALL_DIR>/config.json`（`.gitignore` 除外、雛型 `templates/config.template.json`、`init-config` 生成）に置く。ROUTINE_PROMPT は Step 0 でこれを読み、`<INSTALL_DIR>` は bootstrap が env 解決する（運用値の手置換は不要）。秘匿（bot token / authorized chats）＋ `state_dir` は env、非秘匿の運用設定は config.json が単一正典（**純2層**）。
 
@@ -39,23 +39,35 @@
 ```
 ShioriSecretary/
 ├── .claude-plugin/
-│   └── plugin.json           # marketplace マニフェスト（name/version/keywords）
-├── README.md                 # 入口インデックス
-├── DESIGN.md                 # 設計正典（why）
-├── STRUCTURE.md              # 本ファイル（where）
-├── SECURITY.md               # 網羅的セキュリティ正典
-├── ROUTINE_PROMPT.md         # cloud routine prompt body
-├── CHANGELOG.md              # 変更履歴
+│   ├── marketplace.json      # marketplace マニフェスト（source:"."＝リポ自体が1プラグイン）
+│   └── plugin.json           # プラグインマニフェスト（name/version/keywords）
+├── README.md                 # 入口インデックス（日本語）
+├── README_en.md              # 入口インデックス（英語、docs_en/ を参照）
+├── banner.png                # バナー（日本語、README.md が参照）
+├── banner_en.png             # バナー（英語、README_en.md が参照）
 ├── bootstrap.sh
 ├── pyproject.toml
 ├── .gitignore
+│
+├── docs/                     # 日本語ドキュメント（README.md から参照）
+│   ├── DESIGN.md             # 設計正典（why）
+│   ├── STRUCTURE.md          # 本ファイル（where）
+│   ├── SETUP.md              # セットアップガイド（運用開始の順路）
+│   ├── ROUTINE_PROMPT.md     # cloud routine prompt body
+│   ├── SECURITY.md           # 網羅的セキュリティ正典
+│   └── CHANGELOG.md          # 変更履歴
+│
+├── docs_en/                  # 英語ドキュメント（docs/ の _en 併存、README_en.md から参照）
+│   ├── DESIGN_en.md / STRUCTURE_en.md / SETUP_en.md
+│   └── ROUTINE_PROMPT_en.md / SECURITY_en.md / CHANGELOG_en.md
 │
 ├── commands/
 │   └── shiori-secretary.md # /shiori-secretary 管理パネル入口
 │
 ├── skills/
 │   └── shiori-secretary/
-│       └── SKILL.md          # スキルマニフェスト（仕様 SSoT）
+│       ├── SKILL.md          # スキルマニフェスト（仕様 SSoT、日本語）
+│       └── SKILL_en.md       # 同上（英語）
 │
 ├── templates/                # 雛型のみ（実データは Private）
 │   ├── config.template.json   # 運用設定の雛型（実体は <INSTALL_DIR>/config.json、.gitignore）

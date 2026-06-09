@@ -2,7 +2,7 @@
 
 **Claude のモデルに「秘書を授ける栞」＝ShioriSecretary を、あなたの環境に挟むための手順書。** Telegram で 24-7 即応する秘書を **Claude Code Routines**（Anthropic のクラウド実行スケジュールエージェント基盤。Remote 実行＝cloud routine）上に常駐させます——**迷わず動かす**ための順路で、claude.ai の GUI と Telegram アプリ内でほぼ完結します。
 
-> 仕様の SSoT は [SKILL.md](./skills/shiori-secretary/SKILL.md)、起動手順の詳細は [ROUTINE_PROMPT.md](./ROUTINE_PROMPT.md)、配置規約は [STRUCTURE.md](./STRUCTURE.md)、ローカル動作確認は [README.md](./README.md)。本書はそれらの上に立つ「運用開始の順路」です。
+> 仕様の SSoT は [SKILL.md](../skills/shiori-secretary/SKILL.md)、起動手順の詳細は [ROUTINE_PROMPT.md](./ROUTINE_PROMPT.md)、配置規約は [STRUCTURE.md](./STRUCTURE.md)、ローカル動作確認は [README.md](../README.md)。本書はそれらの上に立つ「運用開始の順路」です。
 
 ## 全体像
 
@@ -43,7 +43,7 @@ marketplace からインストール、または基本設定リポの `ShioriSec
 
 ### ④ 秘書人格を用意（SecretaryRole.md）
 
-雛型 [`templates/SecretaryRole.template.md`](./templates/SecretaryRole.template.md) をコピーし、**非公開リポの `Identities/SecretaryRole.md`** として、秘書の固有名・対応原則・触れない話題などを定義します（人格は個人資産ゆえ非公開リポに置き、配布物には焼き込みません）。
+雛型 [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md) をコピーし、**非公開リポの `Identities/SecretaryRole.md`** として、秘書の固有名・対応原則・触れない話題などを定義します（人格は個人資産ゆえ非公開リポに置き、配布物には焼き込みません）。
 
 ### ⑤ config.json を生成
 
@@ -127,8 +127,8 @@ claude.ai の Code → Environments で：
 
 ## 参照
 
-- 仕様 SSoT: [SKILL.md](./skills/shiori-secretary/SKILL.md)
+- 仕様 SSoT: [SKILL.md](../skills/shiori-secretary/SKILL.md)
 - 起動手順: [ROUTINE_PROMPT.md](./ROUTINE_PROMPT.md)
 - 構造地図: [STRUCTURE.md](./STRUCTURE.md)
 - セキュリティ正典: [SECURITY.md](./SECURITY.md)
-- ローカル動作確認: [README.md](./README.md)
+- ローカル動作確認: [README.md](../README.md)

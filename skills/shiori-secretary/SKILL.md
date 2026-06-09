@@ -14,7 +14,7 @@ description: Claude のモデル（Opus/Fable/Mythos）に秘書を授ける"魔
 - **応答主体**: 親プロセスのエージェント本人が担う（LLM 推論をサブプロセスで多重起動しない設計原則）。本スキルは fetch / 認可 / 正規化 / 送信のみ
 - **state 永続化**: `offset.json` + `lease.json` を `state_dir` に保存、heartbeat + TTL リースで並走防止と crash 自己治癒。**管理表（individuals/tasks/knowledge/abilities）は揮発 state と分離した `registry_dir` に置き、`registry_sync` 有効時は固定ブランチへ git 永続化**（イベント駆動 commit&push + 起動時 fetch、force 不使用）
 - **言行一致の保証（WAL、`registry_sync` 有効時）**: registry の push は best-effort ゆえ「登録したと返信したのに未登録」の不整合が起きうる。これを **WAL（Write-Ahead Log）** で防ぐ——登録系の返信の前に intent を WAL ログ（`registry_dir/wal/WAL.jsonl`、同一固定ブランチ）へ先行 push（must-succeed＝push 不能なら送信もしない）し、起動時に未反映分を registry へ redo（key 冪等）。ログは直近 24h の会話文脈の短期記憶も兼ねる
-- **アイドル枠ゼロの心臓部**: `/goal` が deadline まで各ターンで foreground `watch --exit-on-message` を回す。メッセージ受信で即 exit→返信→再起動（即応、遅延 ≤ long-poll の timeout）、無メッセージ時は long-poll でブロック（待機トークン最小＋ foreground call でセッション warm 保持）。詳細は [`ROUTINE_PROMPT.md`](../../ROUTINE_PROMPT.md)
+- **アイドル枠ゼロの心臓部**: `/goal` が deadline まで各ターンで foreground `watch --exit-on-message` を回す。メッセージ受信で即 exit→返信→再起動（即応、遅延 ≤ long-poll の timeout）、無メッセージ時は long-poll でブロック（待機トークン最小＋ foreground call でセッション warm 保持）。詳細は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)
 
 ## Daily Workflow（cloud routine 起動時）
 
@@ -31,7 +31,7 @@ description: Claude のモデル（Opus/Fable/Mythos）に秘書を授ける"魔
 7. セッション終端で lease release（次 cron が拾える）
 ```
 
-各 media item の処理分岐（詳細フローは [`ROUTINE_PROMPT.md`](../../ROUTINE_PROMPT.md)）:
+各 media item の処理分岐（詳細フローは [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)）:
 
 - **`rendered_text` 非 null（`render_status="ok"`）** → そのテキストを直接活用。docx/pptx/xlsx は markdown、voice/audio/video は音声の文字起こし transcript（`kind`/`mime_type` で判別）
 - **`derived_image_paths` 非空（PDF）** → PDF は常に画像化される（`rendered_text=""`）。先頭最大 5 枚を Vision で大枠把握し、①全文テキスト（`render-pdf --text`）／②個別ページ精読／③十分 を判断（詳細は下記「PDF の扱い」）
@@ -83,7 +83,7 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 
 ## cloud routine ライフサイクル（schedule / unschedule）
 
-`/shiori-secretary` を呼んだエージェントが、この常駐 routine 自体を cloud routine に登録・更新・停止する操作。**Python CLI ではなく `RemoteTrigger` ツール手順**（上記 Subcommands 表＝決定論 CLI とは別系統）。手順の SSoT は [`ROUTINE_PROMPT.md`](../../ROUTINE_PROMPT.md)「cloud routine ライフサイクル管理」節、body shape の正典は内蔵 `schedule` skill。
+`/shiori-secretary` を呼んだエージェントが、この常駐 routine 自体を cloud routine に登録・更新・停止する操作。**Python CLI ではなく `RemoteTrigger` ツール手順**（上記 Subcommands 表＝決定論 CLI とは別系統）。手順の SSoT は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)「cloud routine ライフサイクル管理」節、body shape の正典は内蔵 `schedule` skill。
 
 | 操作 | 機能 | 実体 |
 |---|---|---|
@@ -117,7 +117,7 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 | `TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES` | optional | **送信**添付の上限（既定 50MB、Telegram bot API 上限）。超過は送信前に `AttachmentTooLarge` で弾く（exit 2） |
 | `TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES` | optional | PDF 受信時に `render()` が事前画像化する先頭ページ数の上限（既定 20）。超多ページの disk/トークン安全弁。21 枚目以降は `render-pdf --pages` でオンデマンド生成、`page_count` は実総数 |
 
-> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須・fail-fast）。勤務帯（例 9-17 時）は cloud routine の cron（`0 9-16 * * 1-5`）+ duration で表現（コードに時計を持たせない）。`/goal` deadline 駆動の運用変数（`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export（SSoT。`TS_SESSION_DURATION_SEC` は廃止＝duration 設定値を env に出さない純2層）。`BASH_MAX_TIMEOUT_MS=600000` は `{private_dir}/.claude/settings.json`。詳細は [`ROUTINE_PROMPT.md`](../../ROUTINE_PROMPT.md)。
+> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須・fail-fast）。勤務帯（例 9-17 時）は cloud routine の cron（`0 9-16 * * 1-5`）+ duration で表現（コードに時計を持たせない）。`/goal` deadline 駆動の運用変数（`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export（SSoT。`TS_SESSION_DURATION_SEC` は廃止＝duration 設定値を env に出さない純2層）。`BASH_MAX_TIMEOUT_MS=600000` は `{private_dir}/.claude/settings.json`。詳細は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)。
 
 ## Security
 

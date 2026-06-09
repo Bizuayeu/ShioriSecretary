@@ -2,7 +2,7 @@
 
 **The setup manual for slipping ShioriSecretary — the "bookmark that grants a secretary" — into your Claude model and your environment.** It keeps a secretary that responds 24-7 over Telegram resident on **Claude Code Routines** (Anthropic's cloud-execution scheduled-agent platform; Remote execution = cloud routine) — a route designed to **get you running without getting lost**, almost entirely within the claude.ai GUI and the Telegram app.
 
-> The SSoT for the specification is [SKILL.md](./skills/shiori-secretary/SKILL_en.md); the detailed startup procedure is in [ROUTINE_PROMPT.md](./ROUTINE_PROMPT_en.md); the placement conventions are in [STRUCTURE.md](./STRUCTURE_en.md); local verification is in [README.md](./README_en.md). This document is the "route to begin operation" that sits on top of those.
+> The SSoT for the specification is [SKILL.md](../skills/shiori-secretary/SKILL_en.md); the detailed startup procedure is in [ROUTINE_PROMPT.md](./ROUTINE_PROMPT_en.md); the placement conventions are in [STRUCTURE.md](./STRUCTURE_en.md); local verification is in [README.md](../README_en.md). This document is the "route to begin operation" that sits on top of those.
 
 ## Overview
 
@@ -43,7 +43,7 @@ Install from the marketplace, or place it in the base-configuration repo's `Shio
 
 ### ④ Prepare the secretary persona (SecretaryRole.md)
 
-Copy the template [`templates/SecretaryRole.template.md`](./templates/SecretaryRole.template.md) and define the secretary's proper name, response principles, off-limits topics, and so on as the **private repo's `Identities/SecretaryRole.md`** (the persona is a personal asset, so it lives in the private repo and is not baked into the distributed artifact).
+Copy the template [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md) and define the secretary's proper name, response principles, off-limits topics, and so on as the **private repo's `Identities/SecretaryRole.md`** (the persona is a personal asset, so it lives in the private repo and is not baked into the distributed artifact).
 
 ### ⑤ Generate config.json
 
@@ -127,8 +127,8 @@ Don't give the clock to the code; express it with **cron (launch timing) + `sess
 
 ## References
 
-- Specification SSoT: [SKILL.md](./skills/shiori-secretary/SKILL_en.md)
+- Specification SSoT: [SKILL.md](../skills/shiori-secretary/SKILL_en.md)
 - Startup procedure: [ROUTINE_PROMPT.md](./ROUTINE_PROMPT_en.md)
 - Structure map: [STRUCTURE.md](./STRUCTURE_en.md)
 - Security canon: [SECURITY.md](./SECURITY_en.md)
-- Local verification: [README.md](./README_en.md)
+- Local verification: [README.md](../README_en.md)
