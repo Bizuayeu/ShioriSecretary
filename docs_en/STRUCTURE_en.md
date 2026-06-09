@@ -83,7 +83,9 @@ ShioriSecretary/
 │   ├── domain/               # pure logic, value objects
 │   │   ├── models.py / media.py / outbound.py / exceptions.py
 │   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
-│   │   └── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Ability)
+│   │   ├── session_config.py # session_duration_sec range validation (MAX_SECONDS guard)
+│   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Ability)
+│   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint / outbound split, DESIGN §3.9)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
@@ -91,13 +93,13 @@ ShioriSecretary/
 │   │   ├── proactive_send.py    # proactive send (a sister UseCase to send-reply with the OffsetStore dependency removed, offset-noninterfering)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # registry CRUD UseCase
-│   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents)
+│   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
 │   ├── adapters/
 │   │   ├── media_failure.py  # failure logging + redact helper shared by render/transcribe
 │   │   ├── telegram/         # api_gateway / media_downloader
 │   │   ├── state/            # json_state_store / emitter
 │   │   ├── render/ transcribe/ audio/   # markitdown / pdf / moonshine / ffmpeg
-│   │   ├── registry/         # json_registry_store
+│   │   ├── registry/         # json_registry_store / git_cli (commit&push to fixed branch)
 │   │   └── wal/              # jsonl_wal_log_store (JSONL persistence of the WAL log)
 │   ├── infrastructure/
 │   │   ├── config.py / media_cleanup.py
