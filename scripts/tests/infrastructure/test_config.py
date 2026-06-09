@@ -16,15 +16,15 @@ def base_env(monkeypatch, tmp_path):
     この tmp config.json（session_duration_sec=7200）を読む。
     """
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "TEST")
-    monkeypatch.setenv("TELEGRAM_SECRETARY_AUTHORIZED_CHATS", "[100]")
-    monkeypatch.setenv("TELEGRAM_SECRETARY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("SHIORI_AUTHORIZED_CHATS", "[100]")
+    monkeypatch.setenv("SHIORI_STATE_DIR", str(tmp_path))
     for k in [
-        "TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES",
-        "TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS",
-        "TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD",
-        "TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES",
-        "TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES",
-        "TELEGRAM_SECRETARY_REGISTRY_DIR",
+        "SHIORI_MEDIA_MAX_SIZE_BYTES",
+        "SHIORI_MEDIA_RETENTION_HOURS",
+        "SHIORI_MEDIA_ENABLE_DOWNLOAD",
+        "SHIORI_OUTBOUND_MAX_SIZE_BYTES",
+        "SHIORI_PDF_IMAGE_MAX_PAGES",
+        "SHIORI_REGISTRY_DIR",
     ]:
         monkeypatch.delenv(k, raising=False)
     cfg = tmp_path / "config.json"
@@ -40,54 +40,54 @@ def test_config_defaults_when_media_env_missing():
 
 
 def test_config_parses_max_size_bytes(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES", "5242880")
+    monkeypatch.setenv("SHIORI_MEDIA_MAX_SIZE_BYTES", "5242880")
     cfg = Config.from_sources()
     assert cfg.media_max_size_bytes == 5 * 1024 * 1024
 
 
 def test_config_rejects_non_positive_max_size(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES", "0")
+    monkeypatch.setenv("SHIORI_MEDIA_MAX_SIZE_BYTES", "0")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
 def test_config_rejects_invalid_max_size(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES", "not-a-number")
+    monkeypatch.setenv("SHIORI_MEDIA_MAX_SIZE_BYTES", "not-a-number")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
 def test_config_parses_retention_hours(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS", "6")
+    monkeypatch.setenv("SHIORI_MEDIA_RETENTION_HOURS", "6")
     cfg = Config.from_sources()
     assert cfg.media_retention_hours == 6
 
 
 def test_config_rejects_non_positive_retention(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS", "-1")
+    monkeypatch.setenv("SHIORI_MEDIA_RETENTION_HOURS", "-1")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
 @pytest.mark.parametrize("value", ["true", "1", "yes", "TRUE", "Yes"])
 def test_config_enable_download_truthy_values(monkeypatch, value):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD", value)
+    monkeypatch.setenv("SHIORI_MEDIA_ENABLE_DOWNLOAD", value)
     assert Config.from_sources().media_enable_download is True
 
 
 @pytest.mark.parametrize("value", ["false", "0", "no", "FALSE", "No"])
 def test_config_enable_download_falsy_values(monkeypatch, value):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD", value)
+    monkeypatch.setenv("SHIORI_MEDIA_ENABLE_DOWNLOAD", value)
     assert Config.from_sources().media_enable_download is False
 
 
 def test_config_enable_download_invalid_value(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD", "maybe")
+    monkeypatch.setenv("SHIORI_MEDIA_ENABLE_DOWNLOAD", "maybe")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
-# === Stage 8.4: outbound media size ===
+# === outbound media size ===
 
 
 def test_config_default_outbound_max_size():
@@ -96,18 +96,18 @@ def test_config_default_outbound_max_size():
 
 
 def test_config_parses_outbound_max_size(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES", "10485760")
+    monkeypatch.setenv("SHIORI_OUTBOUND_MAX_SIZE_BYTES", "10485760")
     cfg = Config.from_sources()
     assert cfg.outbound_max_size_bytes == 10 * 1024 * 1024
 
 
 def test_config_rejects_non_positive_outbound_max_size(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES", "0")
+    monkeypatch.setenv("SHIORI_OUTBOUND_MAX_SIZE_BYTES", "0")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
-# === Stage 11.4: PDF image max pages (cap) ===
+# === PDF image max pages (cap) ===
 
 
 def test_config_default_pdf_image_max_pages():
@@ -117,24 +117,24 @@ def test_config_default_pdf_image_max_pages():
 
 
 def test_config_parses_pdf_image_max_pages(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES", "5")
+    monkeypatch.setenv("SHIORI_PDF_IMAGE_MAX_PAGES", "5")
     cfg = Config.from_sources()
     assert cfg.pdf_image_max_pages == 5
 
 
 def test_config_rejects_non_positive_pdf_image_max_pages(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES", "0")
+    monkeypatch.setenv("SHIORI_PDF_IMAGE_MAX_PAGES", "0")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
 def test_config_rejects_invalid_pdf_image_max_pages(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES", "lots")
+    monkeypatch.setenv("SHIORI_PDF_IMAGE_MAX_PAGES", "lots")
     with pytest.raises(EnvironmentError):
         Config.from_sources()
 
 
-# === Stage 2: session_duration_sec（config.json 必須・範囲検証・純2層） ===
+# === session_duration_sec（config.json 必須・範囲検証・純2層） ===
 
 
 def _write_config(tmp_path, data: dict):
@@ -210,7 +210,7 @@ def test_agent_name_defaults_to_none_when_absent(tmp_path):
     assert cfg.private_dir is None
 
 
-# === R1: registry_dir（揮発 state と永続管理表のパス分離） ===
+# === registry_dir（揮発 state と永続管理表のパス分離） ===
 
 
 def test_registry_paths_default_to_state_dir_when_registry_unset(tmp_path):
@@ -226,17 +226,17 @@ def test_registry_dir_config_separates_registry_from_state(tmp_path, monkeypatch
     """config.json の registry_dir 設定時、管理表 path は registry_dir 配下へ分離（state_dir とは別系統）。"""
     state = tmp_path / "volatile"
     reg = tmp_path / "registry"
-    monkeypatch.setenv("TELEGRAM_SECRETARY_STATE_DIR", str(state))
+    monkeypatch.setenv("SHIORI_STATE_DIR", str(state))
     path = _write_config(tmp_path, {"session_duration_sec": 7200, "registry_dir": str(reg)})
     cfg = Config.from_sources(config_path=path)
     assert cfg.state_dir == state.resolve()
     assert reg.resolve() in cfg.individuals_path.parents
     assert cfg.knowledge_path == reg.resolve() / "knowledge" / "KNOWLEDGE.json"
-    # 揮発 state とは別の根に分離されている（R1 の核心）
+    # 揮発 state とは別の根に分離されている（パス分離の核心）
     assert cfg.state_dir not in cfg.individuals_path.parents
 
 
-# === R2-3: registry_sync 設定（イベント駆動 git 同期のオプトイン） ===
+# === registry_sync 設定（イベント駆動 git 同期のオプトイン） ===
 
 
 def test_registry_sync_disabled_by_default(tmp_path):
@@ -256,7 +256,7 @@ def test_registry_remote_and_branch_defaults(tmp_path):
     path = _write_config(tmp_path, {"session_duration_sec": 7200})
     cfg = Config.from_sources(config_path=path)
     assert cfg.registry_remote == "origin"
-    assert cfg.registry_branch == "claude/ts-registry"
+    assert cfg.registry_branch == "claude/shiori-registry"
 
 
 def test_registry_branch_from_config(tmp_path):
@@ -265,20 +265,20 @@ def test_registry_branch_from_config(tmp_path):
     assert cfg.registry_branch == "claude/custom-reg"
 
 
-# === R3: registry_dir の env 優先（bootstrap 絶対化のキャリア、cwd 依存 .resolve() 回避） ===
+# === registry_dir の env 優先（bootstrap 絶対化のキャリア、cwd 依存 .resolve() 回避） ===
 
 
 def test_registry_dir_env_overrides_config(tmp_path, monkeypatch):
-    """TELEGRAM_SECRETARY_REGISTRY_DIR env 設定時、config.json の registry_dir より env を優先する。
+    """SHIORI_REGISTRY_DIR env 設定時、config.json の registry_dir より env を優先する。
 
     config.json の registry_dir は cwd（=2リポ親）起点の相対だが、registry コマンドは
     ROUTINE_PROMPT で `cd $INSTALL_DIR`（skill root）してから走るため、config.py の
-    `.resolve()`（cwd 基準）では二重ネストの幽霊パスに解決される（FINDING 3 同型、R3 物証）。
+    `.resolve()`（cwd 基準）では二重ネストの幽霊パスに解決される（state_dir のパス解決と同型）。
     bootstrap が source 時の cwd（=2リポ親）基準で絶対化して env 注入し、config.py は
     その絶対パスをそのまま信頼する（再 resolve しない＝state_dir と同型の Z 案）。
     """
     abs_reg = (tmp_path / "abs_registry").resolve()
-    monkeypatch.setenv("TELEGRAM_SECRETARY_REGISTRY_DIR", str(abs_reg))
+    monkeypatch.setenv("SHIORI_REGISTRY_DIR", str(abs_reg))
     path = _write_config(tmp_path, {"session_duration_sec": 7200, "registry_dir": "relative/ignored"})
     cfg = Config.from_sources(config_path=path)
     assert cfg.registry_dir == abs_reg

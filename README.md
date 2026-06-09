@@ -41,8 +41,8 @@ python -m pip install -e ".[dev]"
 
 # 環境変数（秘匿のみ＝純2層）
 $env:TELEGRAM_BOT_TOKEN = "<bot-token-from-botfather>"
-$env:TELEGRAM_SECRETARY_AUTHORIZED_CHATS = "[<your-chat-id>]"
-$env:TELEGRAM_SECRETARY_STATE_DIR = ".\state"   # 任意（既定 ./state）
+$env:SHIORI_AUTHORIZED_CHATS = "[<your-chat-id>]"
+$env:SHIORI_STATE_DIR = ".\state"   # 任意（既定 ./state）
 
 # 運用設定 config.json を生成（session_duration_sec 必須、範囲 1〜86400）
 python scripts/main.py init-config --session-duration-sec 14400 --agent-name YourSecretary
@@ -73,12 +73,12 @@ python scripts/main.py lease release
 | Var | Required | 概要 |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | ✅ | BotFather から取得 |
-| `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` | ✅ | JSON array of int（chat_id allowlist） |
-| `TELEGRAM_SECRETARY_STATE_DIR` | optional | offset/lease/media の保存先（既定 `./state`） |
-| `TELEGRAM_SECRETARY_SESSION_ID` | optional | リース owner ID（省略時は uuid 自動生成）。`source bootstrap.sh` で自動 export され全コマンドで共有 |
+| `SHIORI_AUTHORIZED_CHATS` | ✅ | JSON array of int（chat_id allowlist） |
+| `SHIORI_STATE_DIR` | optional | offset/lease/media の保存先（既定 `./state`） |
+| `SHIORI_SESSION_ID` | optional | リース owner ID（省略時は uuid 自動生成）。`source bootstrap.sh` で自動 export され全コマンドで共有 |
 | media / PDF / 音声 / 送信添付の optional 群 | optional | `*_MEDIA_MAX_SIZE_BYTES`（20MB）/ `*_MEDIA_RETENTION_HOURS`（24h）/ `*_MEDIA_ENABLE_DOWNLOAD`（Heavy/Medium）/ `*_BUNDLE_VOICE`（STT 同梱）/ `*_OUTBOUND_MAX_SIZE_BYTES`（50MB）/ `*_PDF_IMAGE_MAX_PAGES`（20）。各既定値・挙動は [SKILL.md](./skills/shiori-secretary/SKILL.md) の env vars 表（SSoT）参照 |
 
-> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須）。「9-17 時勤務」のような勤務帯は cloud routine の cron（例 `0 9-16 * * 1-5`）+ duration で表現します（コードに時計を持たせない）。deadline 駆動ループの運用変数（`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export します。詳細は [ROUTINE_PROMPT.md](./docs/ROUTINE_PROMPT.md)。
+> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須）。「9-17 時勤務」のような勤務帯は cloud routine の cron（例 `0 9-16 * * 1-5`）+ duration で表現します（コードに時計を持たせない）。deadline 駆動ループの運用変数（`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export します。詳細は [ROUTINE_PROMPT.md](./docs/ROUTINE_PROMPT.md)。
 
 ## Subcommands
 
@@ -123,7 +123,7 @@ python -m pytest scripts/tests/ -v
 | `pypdfium2` + `Pillow` | PDF 画像化（ローカル完結） | BSD/Apache 系 |
 | `moonshine-voice` + `av`（PyAV） | 音声 STT（ローカル推論、ffmpeg を wheel 内包） | ⚠️ 下記参照 |
 
-> ⚠️ **moonshine のライセンス** — Community License は年商 $1M 未満のみ商用無料です。年商 $1M 以上での本番利用は Enterprise License、または `TELEGRAM_SECRETARY_BUNDLE_VOICE=false` で音声を外すか、`kotoba-whisper`（Apache-2.0）への差し替えが必要です（`MediaRenderer` Port の差し替えで対応）。
+> ⚠️ **moonshine のライセンス** — Community License は年商 $1M 未満のみ商用無料です。年商 $1M 以上での本番利用は Enterprise License、または `SHIORI_BUNDLE_VOICE=false` で音声を外すか、`kotoba-whisper`（Apache-2.0）への差し替えが必要です（`MediaRenderer` Port の差し替えで対応）。
 >
 > 音声 STT はローカル推論のため、音声データが外部に送信されません（機密 voice メモにも安全）。
 

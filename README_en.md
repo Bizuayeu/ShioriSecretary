@@ -41,8 +41,8 @@ python -m pip install -e ".[dev]"
 
 # Environment variables (secrets only = pure 2-layer)
 $env:TELEGRAM_BOT_TOKEN = "<bot-token-from-botfather>"
-$env:TELEGRAM_SECRETARY_AUTHORIZED_CHATS = "[<your-chat-id>]"
-$env:TELEGRAM_SECRETARY_STATE_DIR = ".\state"   # optional (default ./state)
+$env:SHIORI_AUTHORIZED_CHATS = "[<your-chat-id>]"
+$env:SHIORI_STATE_DIR = ".\state"   # optional (default ./state)
 
 # Generate the operational settings config.json (session_duration_sec required, range 1–86400)
 python scripts/main.py init-config --session-duration-sec 14400 --agent-name YourSecretary
@@ -73,12 +73,12 @@ python scripts/main.py lease release
 | Var | Required | Overview |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | ✅ | Obtained from BotFather |
-| `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
-| `TELEGRAM_SECRETARY_STATE_DIR` | optional | Storage location for offset/lease/media (default `./state`) |
-| `TELEGRAM_SECRETARY_SESSION_ID` | optional | Lease owner ID (auto-generated as uuid if omitted). Auto-exported via `source bootstrap.sh` and shared across all commands |
+| `SHIORI_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
+| `SHIORI_STATE_DIR` | optional | Storage location for offset/lease/media (default `./state`) |
+| `SHIORI_SESSION_ID` | optional | Lease owner ID (auto-generated as uuid if omitted). Auto-exported via `source bootstrap.sh` and shared across all commands |
 | optional group for media / PDF / audio / send attachments | optional | `*_MEDIA_MAX_SIZE_BYTES` (20MB) / `*_MEDIA_RETENTION_HOURS` (24h) / `*_MEDIA_ENABLE_DOWNLOAD` (Heavy/Medium) / `*_BUNDLE_VOICE` (STT bundled) / `*_OUTBOUND_MAX_SIZE_BYTES` (50MB) / `*_PDF_IMAGE_MAX_PAGES` (20). For each default value and behavior, see the env vars table (SSoT) in [SKILL_en.md](./skills/shiori-secretary/SKILL_en.md) |
 
-> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required). A working window like "9-to-5" is expressed with the cloud routine's cron (e.g., `0 9-16 * * 1-5`) + duration (don't give the code a clock). The operational variables of the deadline-driven loop (`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh`. See [ROUTINE_PROMPT_en.md](./docs_en/ROUTINE_PROMPT_en.md) for details.
+> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required). A working window like "9-to-5" is expressed with the cloud routine's cron (e.g., `0 9-16 * * 1-5`) + duration (don't give the code a clock). The operational variables of the deadline-driven loop (`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh`. See [ROUTINE_PROMPT_en.md](./docs_en/ROUTINE_PROMPT_en.md) for details.
 
 ## Subcommands
 
@@ -123,7 +123,7 @@ We publish tests for all layers (Domain / UseCase / Adapter / Infrastructure / C
 | `pypdfium2` + `Pillow` | PDF rendering to images (fully local) | BSD/Apache family |
 | `moonshine-voice` + `av` (PyAV) | Audio STT (local inference, bundles ffmpeg within the wheel) | ⚠️ see below |
 
-> ⚠️ **moonshine's license** — the Community License is free for commercial use only under $1M annual revenue. Production use at $1M or more annual revenue requires the Enterprise License, or you must remove audio with `TELEGRAM_SECRETARY_BUNDLE_VOICE=false`, or switch to `kotoba-whisper` (Apache-2.0) (handled by swapping the `MediaRenderer` Port).
+> ⚠️ **moonshine's license** — the Community License is free for commercial use only under $1M annual revenue. Production use at $1M or more annual revenue requires the Enterprise License, or you must remove audio with `SHIORI_BUNDLE_VOICE=false`, or switch to `kotoba-whisper` (Apache-2.0) (handled by swapping the `MediaRenderer` Port).
 >
 > Because audio STT is local inference, audio data is not sent externally (safe even for confidential voice memos).
 

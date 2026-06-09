@@ -56,4 +56,4 @@ description: cloud routine 常駐 Telegram 秘書の登録・設定・管理表�
 
 ---
 
-**ShioriSecretary** | [GitHub](https://github.com/Bizuayeu/Plugins-Bizuayeu)
+**ShioriSecretary** | [GitHub](https://github.com/Bizuayeu/ShioriSecretary)

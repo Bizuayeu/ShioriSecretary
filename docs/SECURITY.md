@@ -62,7 +62,7 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 
 - ✅ **Private 分離が第一防御** — INDIVIDUALS（関係者の honorific/context_notes/taboo_topics）・TASKS・KNOWLEDGE・Identities はすべて Private リポ。public（配布物）には実体を置かない
 - ⚠️ **context_notes / taboo_topics に PII 前提** — 関係者の自由記述に個人情報が入る前提で、Private リポのアクセス権限を最小化
-- 📋 **shared_with 境界**（複数チャネル併用時、未稼働）— 関係者間の情報共有は `identity.shared_with` の明示許可制。未承認の relay は拒否し、`<OWNER>`（principal）に承認伺い。Telegram 単体では関係者間 relay が無く、LineBridge 等の複数チャネル導入時に発効
+- 📋 **shared_with 境界**（複数チャネル併用時、未稼働）— 関係者間の情報共有は `identity.shared_with` の明示許可制。未承認の relay は拒否し、`<OWNER>`（principal）に承認伺い。Telegram 単体では関係者間 relay が無く、複数チャネル導入時に発効
 - 📋 **principal / associate の権限分離**（強制は複数チャネル時）— role enum（`principal`/`associate`）は値オブジェクトに実装済みだが、管理系操作（approve/block/edit 等）を principal（`<OWNER>`）起源に限る強制は、承認フローを持つ複数チャネル導入時に発効
 - ✅ **git 永続化のセキュリティ**（`registry_sync` 有効時）— 管理表は **Private リポの固定ブランチ**（`registry_branch`）へ push し、public（配布物）には実体を置かない。git 認証（PAT 等）は env / cloud routine Environment に注入し、コミット・ログ・prompt body に焼かない。commit 対象は `registry_dir` 配下の管理表ファイルのみ（人格・秘匿の混入を構造的に排除）。force 不使用ゆえ外部更新を破壊しない
 - ✅ **WAL ログの PII 範囲**（`registry_sync` 有効時）— WAL ログ（`registry_dir/wal/WAL.jsonl`）の各 intent payload は **registry へ add するレコードと同一**（individuals/tasks/knowledge の構造化レコード）ゆえ、registry を超える PII 範囲の拡大は無い（**会話本文全体はログに載せない**）。同じ Private リポ固定ブランチに置かれ、commit 対象も `registry_dir` 配下に限定。done 化後は起動時チェックポイントで 24h 掃除（pending は redo まで保持）。WAL push も registry と同じ git 認証経路ゆえ、秘匿の扱いは上記と同一
@@ -89,7 +89,7 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 
 - [ ] public ツリーに実 token / chat_id / 関係者情報 / 人格実体が混入していないか（grep 検査）
 - [ ] `templates/` は雛型のみで実データを含まないか
-- [ ] `.gitignore` に開発専用ディレクトリ（`docs/devlog/`・`LineBridge/` 等）と `state/`（実データ）が入っているか
+- [ ] `.gitignore` に開発専用ディレクトリ（`docs/devlog/` 等）と `state/`（実データ）が入っているか
 - [ ] token redact テストが green か（network error 経路含む）
 - [ ] injection_flags / 出力漏洩スキャンの運用が ROUTINE_PROMPT に明記されているか
 - [ ] 配布ドキュメントに固有名（人格名・運用主体名・組織名・ローカル絶対パス）が残っていないか（grep 検査）

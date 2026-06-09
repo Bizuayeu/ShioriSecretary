@@ -30,7 +30,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 ### Changed
 
 - **Changed the template default and quickstart example for `session_duration_sec` to `14400` (4h)** — Unified the default value in `config.template.json` and the `init-config` examples (README / commands) to the residency-oriented guideline of `14400`, matched to the measured ceiling of cloud routine (about 4h) (previously `7200`). Also documented the rationale for the default in the field description of `config.template.json`.
-- **Unified the production residency example from a 2h window to a 4h window** — Updated the production settings in the README quickstart notes and the `$TS_MAX_TURNS` computation example in ROUTINE_PROMPT to the measured 4h (`24h≈507・2h≈42` → `24h≈507・4h≈84`). The comment computation example in `bootstrap.sh` was synced as well (behavior and formula unchanged, example values only). The `580s` window (one polling cycle length) is independent of the session window and therefore unchanged.
+- **Unified the production residency example from a 2h window to a 4h window** — Updated the production settings in the README quickstart notes and the `$SHIORI_MAX_TURNS` computation example in ROUTINE_PROMPT to the measured 4h (`24h≈507・2h≈42` → `24h≈507・4h≈84`). The comment computation example in `bootstrap.sh` was synced as well (behavior and formula unchanged, example values only). The `580s` window (one polling cycle length) is independent of the session window and therefore unchanged.
 - **Clarified the `MAX_SECONDS` comment in `session_config.py`** — Noted that `86400` (24h) is a validity guard ceiling for the value range and is a separate layer from the platform's actual session ceiling (about 4h by measurement) (value unchanged).
 
 ### Added
@@ -51,7 +51,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Changed
 
-- **Generalization refactor for distribution (terminology and template alignment)** — Removed the trailing spaces (`agent␣`, 56 occurrences) produced by the bulk neutralization of proper names, unified the cloud routine notation, and replaced operation-specific proper names (PrecognitiveViewer / Expertises, etc.) with neutral examples. Aligned the storage-location descriptions in the management-table templates (INDIVIDUALS/TASKS/KNOWLEDGE) to `<registry_dir>` (a reflection miss of the registry_dir separation), and unified the placeholders to the convention (`<AGENT_NAME>`/`<OWNER>`). Redirected the devlog references in code comments (invalid links not present in the distribution) to DESIGN §3.6.
+- **Generalization refactor for distribution (terminology and template alignment)** — Removed the trailing spaces (`agent␣`, 56 occurrences) produced by the bulk neutralization of proper names, unified the cloud routine notation, and replaced operation-specific proper names with neutral examples. Aligned the storage-location descriptions in the management-table templates (INDIVIDUALS/TASKS/KNOWLEDGE) to `<registry_dir>` (a reflection miss of the registry_dir separation), and unified the placeholders to the convention (`<AGENT_NAME>`/`<OWNER>`). Redirected the devlog references in code comments (invalid links not present in the distribution) to DESIGN §3.6.
 - **DRY consolidation of the registry/wal CLI** — Derived `_WAL_KINDS` from all kinds in `_REGISTRY_SPEC` (the SSoT) to eliminate dual management, and shared `_service`/`_build_git`/`_read_json_arg`. Added abilities to the choices of `wal-append --kind` and aligned the CLI, wal_cli, and documentation. Tidied up redundant elements of `_NON_FF_MARKERS` and unused imports in tests.
 - **Aligned the positioning of archive/splitting with the design** — Corrected DESIGN §2/§3.5 and STRUCTURE to state that "when and at what unit to split/archive" belongs to the world of importance (agent judgment) and is not executed deterministically and automatically (how information is held is decided by the subject of the information). Clarified the positioning of `archive_rotate.py` as a pure function (a tool).
 
@@ -73,24 +73,24 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Added
 
-- **git persistence of management tables (`registry_sync` opt-in, disabled by default)** — Persists the management tables the secretary accumulates (INDIVIDUALS / TASKS / KNOWLEDGE) to a fixed branch (`registry_branch`, default `claude/ts-registry`) and keeps them across the fresh clones of a cloud routine. On each update (add/remove), commit & push in an event-driven manner, and on startup fetch via `registry-sync`. The commit is local-immediate and the push is best-effort (transient failures are batched and resent at the next sync). To avoid breaking independent partial updates of multiple JSON files, **force is not used** (a normal push detects conflicts via non-fast-forward rejection, and only on the exception of an external update does it fall back to `pull --rebase`; the lease guarantees a single writer).
+- **git persistence of management tables (`registry_sync` opt-in, disabled by default)** — Persists the management tables the secretary accumulates (INDIVIDUALS / TASKS / KNOWLEDGE) to a fixed branch (`registry_branch`, default `claude/shiori-registry`) and keeps them across the fresh clones of a cloud routine. On each update (add/remove), commit & push in an event-driven manner, and on startup fetch via `registry-sync`. The commit is local-immediate and the push is best-effort (transient failures are batched and resent at the next sync). To avoid breaking independent partial updates of multiple JSON files, **force is not used** (a normal push detects conflicts via non-fast-forward rejection, and only on the exception of an external update does it fall back to `pull --rebase`; the lease guarantees a single writer).
 - **`registry-sync` subcommand** — On startup, fetches the management tables from the fixed branch (only when `registry_sync` is enabled; a no-op when disabled). A fetch failure is transient (start with the previous local state and retry next time).
 - **Consolidated registry settings into config.json** — Added `registry_sync` / `registry_dir` / `registry_branch` (+ `registry_remote`) to config.json (purely 2-layer) as non-secret operational settings, reflected in the template `templates/config.template.json`. Also prepared the cloud routine startup procedure (startup fetch / update push in `ROUTINE_PROMPT.md`, the `schedule` body's write-back target `outcomes`) and the setup procedure in `SETUP.md`.
 
 ### Changed
 
 - **Separated the storage location of the management tables from volatile state** — offset/lease/media (volatile, `state_dir`) and the management tables (persistent, `registry_dir`) have opposite persistence requirements, so they were physically separated. When `registry_dir` is unset, it falls back to `state_dir` and maintains the existing behavior (backward compatible).
-- **Made `registry_dir` path resolution independent of the cloud routine execution cwd** — Resolving the relative `registry_dir` in config.json with `Path.resolve()` (cwd-based) would, because the registry subcommands run with the skill directory as cwd, resolve to a wrong path outside the Private clone (untracked by git) in a multi-repo parallel-clone structure. Unified to a scheme where bootstrap makes it absolute based on the startup cwd (the repository parent) and injects it into `TELEGRAM_SECRETARY_REGISTRY_DIR`, with config loading preferring the env (the same shape as making the volatile `state_dir` absolute). When the env is absent, it resolves the config.json value as before (backward compatible for local operation).
+- **Made `registry_dir` path resolution independent of the cloud routine execution cwd** — Resolving the relative `registry_dir` in config.json with `Path.resolve()` (cwd-based) would, because the registry subcommands run with the skill directory as cwd, resolve to a wrong path outside the Private clone (untracked by git) in a multi-repo parallel-clone structure. Unified to a scheme where bootstrap makes it absolute based on the startup cwd (the repository parent) and injects it into `SHIORI_REGISTRY_DIR`, with config loading preferring the env (the same shape as making the volatile `state_dir` absolute). When the env is absent, it resolves the config.json value as before (backward compatible for local operation).
 
 ### Verified
 
-- **Verified registry persistence on real hardware (cloud routine)** — Registered a task via Telegram → updated its details, and confirmed the add commit reaching the fixed branch `claude/ts-registry`, the upsert idempotency of `TASKS.json` (the same id is folded into one record with `created_at` preserved and `updated_at` updated), and restoration via startup fetch. Also confirmed the soundness of the push path (the commit reaches origin).
+- **Verified registry persistence on real hardware (cloud routine)** — Registered a task via Telegram → updated its details, and confirmed the add commit reaching the fixed branch `claude/shiori-registry`, the upsert idempotency of `TASKS.json` (the same id is folded into one record with `created_at` preserved and `updated_at` updated), and restoration via startup fetch. Also confirmed the soundness of the push path (the commit reaches origin).
 
 ## [0.12.0] - 2026-06-03
 
 ### Changed
 
-- **Changed the role of `TS_MAX_TURNS` from "runaway insurance" to "daily total-volume rate cap" (dynamic computation linked to duration)** — Abolished the fixed `300` (premised on a 2h session, `2h/30s≈240+buffer`) and computed it from `session_duration_sec` as `idle floor(duration/POLL_SET_SEC) + a 15 msgs/h budget` (24h→about 507, 2h→about 42). It becomes a ceiling that "guarantees ≈15 msgs/h at minimum" and follows along even if you change `session_duration_sec`. Previously the 2h-premised 300 was reused for 24h operation, causing an inconsistency where it reached the deadline early on active days. The stop axis remains the deadline (clock time), and this cap doubles as the upper bound on daily total volume = runaway insurance (because it is a cumulative counter, front-loading is possible; it is not hourly leveling). If `TS_MAX_TURNS` is explicitly set via env, it can be overridden as before; the rate constant is fixed at 15 msgs/h (`_ts_msg_per_hour` in `bootstrap.sh`). For short durations (for testing, under about 1.4h), integer division makes the computation too small / 0 and `/goal` stops immediately, so a floor=30 is laid down.
+- **Changed the role of `SHIORI_MAX_TURNS` from "runaway insurance" to "daily total-volume rate cap" (dynamic computation linked to duration)** — Abolished the fixed `300` (premised on a 2h session, `2h/30s≈240+buffer`) and computed it from `session_duration_sec` as `idle floor(duration/POLL_SET_SEC) + a 15 msgs/h budget` (24h→about 507, 2h→about 42). It becomes a ceiling that "guarantees ≈15 msgs/h at minimum" and follows along even if you change `session_duration_sec`. Previously the 2h-premised 300 was reused for 24h operation, causing an inconsistency where it reached the deadline early on active days. The stop axis remains the deadline (clock time), and this cap doubles as the upper bound on daily total volume = runaway insurance (because it is a cumulative counter, front-loading is possible; it is not hourly leveling). If `SHIORI_MAX_TURNS` is explicitly set via env, it can be overridden as before; the rate constant is fixed at 15 msgs/h (`_shiori_msg_per_hour` in `bootstrap.sh`). For short durations (for testing, under about 1.4h), integer division makes the computation too small / 0 and `/goal` stops immediately, so a floor=30 is laid down.
 
 ## [0.11.1] - 2026-06-02
 
@@ -100,7 +100,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Changed
 
-- **Generalized the operational settings path to be based on `<INSTALL_DIR>` (placement- and junction-independent)** — Abolished bootstrap computing the repo root as `../..` (premised on a 2-level placement) and unified to `INSTALL_DIR`, which absolutely resolves from its own physical location. Removed operation-specific directory hierarchies from the ROUTINE_PROMPT / SETUP / bootstrap comments, and added a procedure to replace `<INSTALL_DIR>` with the actual placement path when generating the `schedule` body. Removed the derived `TELEGRAM_SECRETARY_REPO_ROOT` from the env snapshot.
+- **Generalized the operational settings path to be based on `<INSTALL_DIR>` (placement- and junction-independent)** — Abolished bootstrap computing the repo root as `../..` (premised on a 2-level placement) and unified to `INSTALL_DIR`, which absolutely resolves from its own physical location. Removed operation-specific directory hierarchies from the ROUTINE_PROMPT / SETUP / bootstrap comments, and added a procedure to replace `<INSTALL_DIR>` with the actual placement path when generating the `schedule` body. Removed the derived `SHIORI_REPO_ROOT` from the env snapshot.
 
 ### Removed
 
@@ -124,7 +124,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Removed
 
-- **Abolished the 7200 default fallback of `TS_SESSION_DURATION_SEC`** — `session_duration_sec` is required in config.json (a missing value is fail-fast). bootstrap locally obtains the duration from config.json to compute the deadline and does not emit the duration setting to env (purely 2-layer).
+- **Abolished the 7200 default fallback of `SHIORI_SESSION_DURATION_SEC`** — `session_duration_sec` is required in config.json (a missing value is fail-fast). bootstrap locally obtains the duration from config.json to compute the deadline and does not emit the duration setting to env (purely 2-layer).
 
 ## [0.10.1] - 2026-05-31
 
@@ -147,7 +147,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 ### Added
 
 - Image all pages of image PDFs (scans, drawings) and have the agent progressively interpret with Vision from the leading page. Separated imaging (deterministic, low cost) and Vision (judgment, high cost), and grasp the total with `page_count` to read only what is needed.
-- Added an env for the upper bound on the number of imaged pages (`TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES`, default 20).
+- Added an env for the upper bound on the number of imaged pages (`SHIORI_PDF_IMAGE_MAX_PAGES`, default 20).
 
 ### Notes
 
@@ -200,7 +200,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Changed
 
-- Made the audio bundle (the STT library) optional. On the premise that the required dependencies differ per media type, separated into three tiers: lightweight configuration (download only) / standard (document support) / audio support. The audio bundle can be excluded with `TELEGRAM_SECRETARY_BUNDLE_VOICE=false`.
+- Made the audio bundle (the STT library) optional. On the premise that the required dependencies differ per media type, separated into three tiers: lightweight configuration (download only) / standard (document support) / audio support. The audio bundle can be excluded with `SHIORI_BUNDLE_VOICE=false`.
 - Because the license of the audio STT library changes its commercial terms by annual-revenue scale, large-scale operations should handle it by excluding the audio bundle or switching to an alternative library.
 
 ## [0.7.1] - 2026-05-29
@@ -303,7 +303,7 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 ### Changed
 
-- Unified the policy of publishing the tests of all Expertises as evidence of reliability.
+- Unified the policy of publishing the tests of all layers as evidence of reliability.
 
 ## [0.1.0] - 2026-05-26 — first version
 

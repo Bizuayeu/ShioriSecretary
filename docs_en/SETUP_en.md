@@ -33,7 +33,7 @@ The secretary's responses are drafted by the parent agent itself; this skill onl
 ### ② Find out your own chat_id
 
 1. Talk to **@userinfobot** on Telegram
-2. Note the numeric **Id** that comes back (e.g. `123456789`) ← this is `TELEGRAM_SECRETARY_AUTHORIZED_CHATS`
+2. Note the numeric **Id** that comes back (e.g. `123456789`) ← this is `SHIORI_AUTHORIZED_CHATS`
 
 > **The token and the chat_id are different things.** The token is the bot's key (issued by BotFather); the chat_id is your personal destination (revealed by @userinfobot). In a personal DM, `chat_id = user_id`.
 
@@ -62,14 +62,14 @@ Copy the template [`templates/SecretaryRole.template.md`](../templates/Secretary
 ```json
 {
   "registry_sync": true,
-  "registry_dir": "ts-registry-wt",
-  "registry_branch": "claude/ts-registry"
+  "registry_dir": "shiori-registry-wt",
+  "registry_branch": "claude/shiori-registry"
 }
 ```
 
 - `registry_sync`: set to `true` to git-persist the management tables to a fixed branch (commit & push on every update + fetch at startup). For local verification, use `false` (does not touch git)
-- `registry_dir`: where the persistent management tables (individuals/tasks/knowledge/abilities) live. Keep it **separate from `state_dir`, which holds volatile state (offset/lease/media)**, and point it at **an independent second git working tree (worktree) of the private repo** (bootstrap does idempotent provisioning via `git worktree add`; recommended value `ts-registry-wt`). **Making it a subdirectory inside the dev tree is not allowed**, because the startup `checkout -B` of fetch would destroy the parent repo (→ DESIGN §3.6). If unset, it falls back to `state_dir`
-- `registry_branch`: the fixed branch to push to (default `claude/ts-registry`). Operated together with `registry_remote` (default `origin`). By separating it from volatile state, you physically separate "things that may disappear" from "things whose accumulation is the essence"
+- `registry_dir`: where the persistent management tables (individuals/tasks/knowledge/abilities) live. Keep it **separate from `state_dir`, which holds volatile state (offset/lease/media)**, and point it at **an independent second git working tree (worktree) of the private repo** (bootstrap does idempotent provisioning via `git worktree add`; recommended value `shiori-registry-wt`). **Making it a subdirectory inside the dev tree is not allowed**, because the startup `checkout -B` of fetch would destroy the parent repo (→ DESIGN §3.6). If unset, it falls back to `state_dir`
+- `registry_branch`: the fixed branch to push to (default `claude/shiori-registry`). Operated together with `registry_remote` (default `origin`). By separating it from volatile state, you physically separate "things that may disappear" from "things whose accumulation is the essence"
 
 ### ⑥ Register with cloud routine
 
@@ -80,7 +80,7 @@ Copy the template [`templates/SecretaryRole.template.md`](../templates/Secretary
 - Creates the routine itself (cron + prompt body + sources)
 - **sources are the base configuration + the private one** (two if split, one if consolidated into a single repo)
 - The `<BASE_REPO>` / `<PRIVATE_DIR>` in the prompt body are automatically replaced with the actual repo names by schedule (no manual replacement needed)
-- **If you enabled `registry_sync`**, the management tables are pushed directly from `registry_dir` (the independent worktree) by `registry_cli` to the fixed branch `registry_branch` (default `claude/ts-registry`) (`bootstrap.sh` provisions the worktree; authentication uses the cloud routine's git credential. DESIGN §3.6). Naming the `registry_branch` in the routine's `outcomes` declaration is not required (after the 2026-06-05 worktree migration)
+- **If you enabled `registry_sync`**, the management tables are pushed directly from `registry_dir` (the independent worktree) by `registry_cli` to the fixed branch `registry_branch` (default `claude/shiori-registry`) (`bootstrap.sh` provisions the worktree; authentication uses the cloud routine's git credential. DESIGN §3.6). Naming the `registry_branch` in the routine's `outcomes` declaration is not required (after the 2026-06-05 worktree migration)
 
 > **`environment_id` can be swapped in later.** Creating the routine first, then setting up the environment in ⑦ and binding it afterward, is generally the less error-prone flow and is recommended.
 
@@ -90,7 +90,7 @@ In claude.ai's Code → Environments:
 
 - **Environment variables**:
   - `TELEGRAM_BOT_TOKEN` = the token from ①
-  - `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` = `[chat_id from ②]` (a JSON integer array. e.g. `[123456789]`)
+  - `SHIORI_AUTHORIZED_CHATS` = `[chat_id from ②]` (a JSON integer array. e.g. `[123456789]`)
 - **network policy (egress allowance)**: **allow `api.telegram.org`** ← without this it stops at startup with `host_not_allowed`
 - Bind the created Environment to the routine (via the GUI, or by re-running `/shiori-secretary schedule` and specifying `environment_id`)
 
@@ -123,7 +123,7 @@ Don't give the clock to the code; express it with **cron (launch timing) + `sess
 | No reply comes back | egress or authorization | Check whether chat_id is in `AUTHORIZED_CHATS` and whether `api.telegram.org` egress is open |
 | Management tables revert to empty every time | `registry_sync` disabled, or worktree not provisioned, or insufficient git auth | Check config's `registry_sync:true` / `registry_dir` (independent worktree) → verify the bootstrap `registry worktree provisioned/refreshed` log and the push authentication (git credential) to the fixed branch (DESIGN §3.6) |
 | `registry fetch failed` (at startup) | fixed branch not created, or insufficient git auth | On the first run it continues even if the target branch is empty (launches with the previous local state). Verify that git auth (PAT, etc.) is present in the Environment |
-| Management tables empty = running with no memory (stderr shows `WARNING: ... EMPTY tables`) | `registry_dir` is not an independent worktree (a subdirectory inside the dev tree = the old layout) | Set `registry_dir` to the independent-worktree value (`ts-registry-wt`). Verify the bootstrap `registry worktree provisioned/refreshed` log (→ DESIGN §3.6) |
+| Management tables empty = running with no memory (stderr shows `WARNING: ... EMPTY tables`) | `registry_dir` is not an independent worktree (a subdirectory inside the dev tree = the old layout) | Set `registry_dir` to the independent-worktree value (`shiori-registry-wt`). Verify the bootstrap `registry worktree provisioned/refreshed` log (→ DESIGN §3.6) |
 
 ## References
 

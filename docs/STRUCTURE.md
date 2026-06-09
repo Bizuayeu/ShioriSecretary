@@ -17,10 +17,10 @@
 | `<BASE_REPO>` | 基本設定リポ名（cloud routine が cwd 親に並列 clone する基本設定リポ。`schedule` が `sources` から実値置換） | `my-config-repo` |
 | `<PRIVATE_DIR>` | 非公開データ・人格定義の配置先（cloud routine では cwd 親起点の相対） | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | インストール先パス | ShioriSecretary 配置先 |
-| `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `TELEGRAM_SECRETARY_STATE_DIR` |
-| `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/ts-registry` の独立 git worktree、root 直下に4管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10） | config.json `registry_dir`（推奨 `ts-registry-wt`、未設定なら `<state_dir>`） |
+| `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `SHIORI_STATE_DIR` |
+| `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/shiori-registry` の独立 git worktree、root 直下に4管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10） | config.json `registry_dir`（推奨 `shiori-registry-wt`、未設定なら `<state_dir>`） |
 
-`SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md)。
+`SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md)（英語版 [`SecretaryRole.template_en.md`](../templates/SecretaryRole.template_en.md)）。
 
 **運用設定は config.json に集約**: `agent_name` / `private_dir` / `session_duration_sec` / `registry_sync` / `registry_dir` / `registry_branch` は手置換せず `<INSTALL_DIR>/config.json`（`.gitignore` 除外、雛型 `templates/config.template.json`、`init-config` 生成）に置く。ROUTINE_PROMPT は Step 0 でこれを読み、`<INSTALL_DIR>` は bootstrap が env 解決する（運用値の手置換は不要）。秘匿（bot token / authorized chats）＋ `state_dir` は env、非秘匿の運用設定は config.json が単一正典（**純2層**）。
 
@@ -30,7 +30,7 @@
 |---|---|---|
 | **public（配布物）** | marketplace プラグインとして公開 | scripts（コード）・ドキュメント・テンプレート（雛型） |
 | **Private（実体）** | 別の非公開リポ（`<PRIVATE_DIR>`） | 人格実体・管理表実データ・運用 state |
-| **除外（開発専用・実体）** | `.gitignore` | 開発専用ディレクトリ（`docs/devlog/`・`LineBridge/`）・生成物・`state/`・`config.json`（運用設定の実体。雛型 `templates/config.template.json` は配布対象） |
+| **除外（開発専用・実体）** | `.gitignore` | 開発専用ディレクトリ（`docs/devlog/`）・生成物・`state/`・`config.json`（運用設定の実体。雛型 `templates/config.template.json` は配布対象） |
 
 **鉄則**: public には個人情報・人格を一切焼き込まない。実体はすべて Private。これが配布可能性の担保。
 
@@ -76,7 +76,8 @@ ShioriSecretary/
 │   ├── TASKS.template.json
 │   ├── KNOWLEDGE.template.json
 │   ├── ABILITIES.template.json
-│   └── SecretaryRole.template.md
+│   ├── SecretaryRole.template.md
+│   └── SecretaryRole.template_en.md   # 英語版（標準秘書像「栞」）
 │
 ├── scripts/                  # Clean Architecture 4層
 │   ├── main.py               # CLI entrypoint（subcommands）
@@ -110,7 +111,7 @@ ShioriSecretary/
 │   │   └── archive_rotate.py # 日付Archive（TASKS/INDIVIDUALS）+ カテゴリ分割（KNOWLEDGE）
 │   └── tests/                # 全層のテスト（配布物として公開）
 │
-└── （docs/devlog/・LineBridge/ は .gitignore 除外＝開発リポのみ、配布物には含まれない）
+└── （docs/devlog/ は .gitignore 除外＝開発リポのみ、配布物には含まれない）
 ```
 
 ## Private ツリー（`<PRIVATE_DIR>` 配下）

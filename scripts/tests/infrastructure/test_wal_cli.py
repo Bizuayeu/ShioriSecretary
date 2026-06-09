@@ -117,7 +117,7 @@ def test_redo_reconciles_abilities_pending_into_registry(tmp_path):
     assert all(e.status == "done" for e in JsonlWalLogStore(config.wal_log_path).load())
 
 
-# --- outbound kind（proactive-send 送信ロスト対策、Stage 3）---
+# --- outbound kind（proactive-send 送信ロスト対策）---
 
 
 def test_append_writes_outbound_pending(tmp_path):
@@ -197,7 +197,7 @@ def test_redo_persist_is_best_effort_on_push_failure(tmp_path):
     assert run_wal_redo(config, sink=FakeMessageSink(), git=git) == EXIT_OK
 
 
-# --- outbound happy-path settle ヘルパ（proactive-send 内包、Stage 3a）---
+# --- outbound happy-path settle ヘルパ（proactive-send 内包）---
 
 
 def test_append_outbound_helper_noop_when_sync_disabled(tmp_path):

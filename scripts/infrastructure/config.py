@@ -43,16 +43,16 @@ class Config:
     pdf_image_max_pages: int = DEFAULT_PDF_IMAGE_MAX_PAGES
     agent_name: str | None = None
     private_dir: str | None = None
-    registry_dir: Path | None = None  # 管理表（永続）の根。None なら state_dir にフォールバック（R1）
-    registry_sync_enabled: bool = False  # イベント駆動 git 同期のオプトイン（R2-3、既定無効）
+    registry_dir: Path | None = None  # 管理表（永続）の根。None なら state_dir にフォールバック
+    registry_sync_enabled: bool = False  # イベント駆動 git 同期のオプトイン（既定無効）
     registry_remote: str = "origin"
-    registry_branch: str = "claude/ts-registry"
+    registry_branch: str = "claude/shiori-registry"
 
     @property
     def registry_root(self) -> Path:
         """管理表（individuals/tasks/knowledge）の根。
 
-        揮発 state（offset/lease/media）は state_dir、永続管理表は registry_dir に分離する（R1）。
+        揮発 state（offset/lease/media）は state_dir、永続管理表は registry_dir に分離する。
         registry_dir 未設定なら state_dir にフォールバック（後方互換）。
         """
         return self.registry_dir if self.registry_dir is not None else self.state_dir
@@ -95,28 +95,28 @@ class Config:
         if not token:
             raise EnvironmentError("TELEGRAM_BOT_TOKEN is not set")
 
-        chats_raw = os.environ.get("TELEGRAM_SECRETARY_AUTHORIZED_CHATS", "").strip()
+        chats_raw = os.environ.get("SHIORI_AUTHORIZED_CHATS", "").strip()
         if not chats_raw:
-            raise EnvironmentError("TELEGRAM_SECRETARY_AUTHORIZED_CHATS is not set")
+            raise EnvironmentError("SHIORI_AUTHORIZED_CHATS is not set")
         try:
             parsed = json.loads(chats_raw)
         except json.JSONDecodeError as exc:
             raise EnvironmentError(
-                f"TELEGRAM_SECRETARY_AUTHORIZED_CHATS must be JSON array of int: {exc}"
+                f"SHIORI_AUTHORIZED_CHATS must be JSON array of int: {exc}"
             )
         if not isinstance(parsed, list):
             raise EnvironmentError(
-                "TELEGRAM_SECRETARY_AUTHORIZED_CHATS must be a JSON array of int"
+                "SHIORI_AUTHORIZED_CHATS must be a JSON array of int"
             )
         try:
             chat_ids: Iterable[int] = [int(c) for c in parsed]
         except (TypeError, ValueError) as exc:
             raise EnvironmentError(
-                f"TELEGRAM_SECRETARY_AUTHORIZED_CHATS elements must be ints: {exc}"
+                f"SHIORI_AUTHORIZED_CHATS elements must be ints: {exc}"
             )
 
         # --- state_dir: env 任意上書き（未設定なら ./state、bootstrap が絶対化）。揮発 state 専用 ---
-        state_dir = Path(os.environ.get("TELEGRAM_SECRETARY_STATE_DIR", "./state")).resolve()
+        state_dir = Path(os.environ.get("SHIORI_STATE_DIR", "./state")).resolve()
 
         # --- 非秘匿の運用設定: config.json（<INSTALL_DIR>/config.json 決め打ち、必須） ---
         path = config_path or _default_config_path()
@@ -144,14 +144,14 @@ class Config:
         agent_name = data.get("agent_name")  # Optional（prompt 用、CLI fetch/send では未使用）
         private_dir = data.get("private_dir")  # Optional
 
-        # --- registry（永続管理表）: config.json が値の正典。ただしパス解決は env 優先（R3）。 ---
+        # --- registry（永続管理表）: config.json が値の正典。ただしパス解決は env 優先。 ---
         # config.json の registry_dir は cwd（=2リポ親）起点の相対だが、registry コマンドは
         # ROUTINE_PROMPT で `cd $INSTALL_DIR`（skill root）してから走るため、ここで .resolve() すると
-        # cwd 基準で二重ネストの幽霊パス化する（state_dir の FINDING 3 同型、R3 物証）。bootstrap が
-        # source 時の cwd（=2リポ親）基準で絶対化して TELEGRAM_SECRETARY_REGISTRY_DIR に注入するので、
+        # cwd 基準で二重ネストの幽霊パス化する（state_dir のパス解決と同型）。bootstrap が
+        # source 時の cwd（=2リポ親）基準で絶対化して SHIORI_REGISTRY_DIR に注入するので、
         # env があればその絶対パスをそのまま信頼（再 resolve しない）。env 無し（ローカル運用/テスト）は
         # 従来どおり config.json の値を .resolve()。
-        registry_dir_env = os.environ.get("TELEGRAM_SECRETARY_REGISTRY_DIR", "").strip()
+        registry_dir_env = os.environ.get("SHIORI_REGISTRY_DIR", "").strip()
         if registry_dir_env:
             registry_dir = Path(registry_dir_env)
         else:
@@ -159,27 +159,27 @@ class Config:
             registry_dir = Path(registry_dir_raw).resolve() if registry_dir_raw else None
         registry_sync_enabled = bool(data.get("registry_sync", False))  # オプトイン（既定無効）
         registry_remote = data.get("registry_remote") or "origin"
-        registry_branch = data.get("registry_branch") or "claude/ts-registry"
+        registry_branch = data.get("registry_branch") or "claude/shiori-registry"
 
         # --- media 系: env 任意上書き（未設定で DEFAULT、据え置き） ---
         max_size = cls._parse_positive_int(
-            "TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES",
+            "SHIORI_MEDIA_MAX_SIZE_BYTES",
             default=DEFAULT_MEDIA_MAX_SIZE_BYTES,
         )
         retention = cls._parse_positive_int(
-            "TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS",
+            "SHIORI_MEDIA_RETENTION_HOURS",
             default=DEFAULT_MEDIA_RETENTION_HOURS,
         )
         enable_download = cls._parse_bool(
-            "TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD",
+            "SHIORI_MEDIA_ENABLE_DOWNLOAD",
             default=True,
         )
         outbound_max_size = cls._parse_positive_int(
-            "TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES",
+            "SHIORI_OUTBOUND_MAX_SIZE_BYTES",
             default=DEFAULT_OUTBOUND_MAX_SIZE_BYTES,
         )
         pdf_image_max_pages = cls._parse_positive_int(
-            "TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES",
+            "SHIORI_PDF_IMAGE_MAX_PAGES",
             default=DEFAULT_PDF_IMAGE_MAX_PAGES,
         )
 

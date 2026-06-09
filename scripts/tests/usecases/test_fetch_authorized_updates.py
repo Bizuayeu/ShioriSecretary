@@ -72,7 +72,7 @@ def test_injection_flag_is_attached_but_does_not_block():
     assert "role_override" in result[0].injection_flags
 
 
-# === Stage 6.2: caption 統合 + media 引き継ぎ ===
+# === caption 統合 + media 引き継ぎ ===
 
 def test_caption_is_merged_into_normalized_text():
     payload = {
@@ -118,7 +118,7 @@ def test_caption_merged_above_text_when_both_present():
 
 
 def test_update_without_media_has_empty_media_list_backward_compat():
-    """Stage 5 までの既存テストが破壊されない後方互換確認。"""
+    """既存テストが破壊されない後方互換確認。"""
     source = FakeUpdateSource(batches=[[_update(1, chat_id=100, text="hello")]])
     offset_store = FakeOffsetStore()
     allowlist = AuthorizedChats.from_iterable([100])
@@ -128,7 +128,7 @@ def test_update_without_media_has_empty_media_list_backward_compat():
     assert result[0].update.caption is None
 
 
-# === Stage 9.2: voice / audio / video が fetch を通る ===
+# === voice / audio / video が fetch を通る ===
 
 def test_voice_update_passes_through_fetch():
     """voice 付き update が認可フィルタを通り media に乗る。"""

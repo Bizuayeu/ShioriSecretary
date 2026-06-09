@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "telegramsecretary"
+name = "shiorisecretary"
 version = "1.2.2"
-description = "Telegram Bot API の long-polling を cloud routine 上で常駐させ、認可済みチャットからのメッセージに秘書エージェント（SecretaryRole）が即応する対話チャネル"
+description = "魔法の栞——Opus/Fable/Mythos に秘書機能を持たせるサーバーレス AI 秘書。Telegram Bot API を cloud routine 上で常駐させ、認可済みチャットに秘書エージェント（SecretaryRole）が即応する対話チャネル（追加 API 課金なし・専用サーバ不要）"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
@@ -47,6 +51,12 @@ dev = [
     # docx を python-docx で生成するのと同型）。reportlab は本番依存ではない。
     "reportlab>=4.0",
 ]
+
+[tool.setuptools]
+# コードは pythonpath=["scripts"] で解決し、配布パッケージ化はしない（editable install は依存導入専用）。
+# 明示しないと setuptools が flat-layout auto-discovery で skills/docs_en/commands/templates を
+# 複数トップレベルパッケージと誤検出し、`pip install -e .` がビルド失敗する。
+packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["scripts/tests"]

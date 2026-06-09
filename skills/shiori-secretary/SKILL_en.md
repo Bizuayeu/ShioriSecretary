@@ -19,12 +19,12 @@ description: A "magic bookmark" that grants a secretary to any Claude model (Opu
 ## Daily Workflow (at cloud routine startup)
 
 ```
-1. In Step 0, read `config.json` to learn `agent_name`/`private_dir` → `source bootstrap.sh` to install dependencies + validate-config (including validation of session_duration_sec in config.json) + share `TELEGRAM_SECRETARY_SESSION_ID` via env
+1. In Step 0, read `config.json` to learn `agent_name`/`private_dir` → `source bootstrap.sh` to install dependencies + validate-config (including validation of session_duration_sec in config.json) + share `SHIORI_SESSION_ID` via env
 2. Verify egress connectivity (hit curl api.telegram.org/.../getMe with an invalid token to confirm 401/404 is returned)
 3. lease acquire (if another session holds it, exit 4 immediately = self-healing)
-4. Drive monitoring with `/goal` until the deadline (`$TS_SESSION_DEADLINE_EPOCH`). Each turn = foreground
+4. Drive monitoring with `/goal` until the deadline (`$SHIORI_SESSION_DEADLINE_EPOCH`). Each turn = foreground
    `watch --exit-on-message --max-duration <remaining window> --timeout 30` (only this call uses bash
-   `timeout: $TS_POLL_BASH_TIMEOUT_MS`, others default to 2 minutes)
+   `timeout: $SHIORI_POLL_BASH_TIMEOUT_MS`, others default to 2 minutes)
 5. After watch returns, read the JSON Lines from stdout, the agent drafts a response as SecretaryRole → send-reply
    (immediate-response restart on message receipt, restart at window expiry if none)
 6. lease renew is run internally by watch each cycle (no manual renew needed)
@@ -107,17 +107,17 @@ The operation by which the agent that invoked `/shiori-secretary` registers, upd
 | Var | Required | Overview |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | ✅ | The bot token obtained from BotFather |
-| `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
-| `TELEGRAM_SECRETARY_STATE_DIR` | optional | Save location for offset/lease/media, default `./state` (media is in `state_dir/media/`) |
-| `TELEGRAM_SECRETARY_SESSION_ID` | optional | Lease owner ID, auto-generated uuid if omitted. Auto-exported by `source bootstrap.sh`, so all `lease`/`watch`/`send-reply` commands share the same owner |
-| `TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES` | optional | Size limit for media download (default 20MB). Excess is emitted with `skip_reason="media_size_exceeded"`, download skipped |
-| `TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS` | optional | Retention period for stored media (default 24h). `cleanup_media_dir` deletes files exceeding it |
-| `TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD` | optional | Toggle between Heavy (true=default) / Medium (false) mode |
-| `TELEGRAM_SECRETARY_BUNDLE_VOICE` | optional | Whether to install voice/video STT (moonshine+av) in bootstrap (default true). `false` to exclude = audio falls back to `skipped` (avoids the moonshine Community License, lighter weight, for large-scale deployments) |
-| `TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES` | optional | Limit for **outbound** attachments (default 50MB, the Telegram bot API limit). Excess is rejected before sending with `AttachmentTooLarge` (exit 2) |
-| `TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES` | optional | Upper limit on the number of leading pages `render()` pre-renders to images on PDF receipt (default 20). A disk/token safety valve for very many pages. The 21st page onward is generated on-demand with `render-pdf --pages`, `page_count` is the actual total |
+| `SHIORI_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
+| `SHIORI_STATE_DIR` | optional | Save location for offset/lease/media, default `./state` (media is in `state_dir/media/`) |
+| `SHIORI_SESSION_ID` | optional | Lease owner ID, auto-generated uuid if omitted. Auto-exported by `source bootstrap.sh`, so all `lease`/`watch`/`send-reply` commands share the same owner |
+| `SHIORI_MEDIA_MAX_SIZE_BYTES` | optional | Size limit for media download (default 20MB). Excess is emitted with `skip_reason="media_size_exceeded"`, download skipped |
+| `SHIORI_MEDIA_RETENTION_HOURS` | optional | Retention period for stored media (default 24h). `cleanup_media_dir` deletes files exceeding it |
+| `SHIORI_MEDIA_ENABLE_DOWNLOAD` | optional | Toggle between Heavy (true=default) / Medium (false) mode |
+| `SHIORI_BUNDLE_VOICE` | optional | Whether to install voice/video STT (moonshine+av) in bootstrap (default true). `false` to exclude = audio falls back to `skipped` (avoids the moonshine Community License, lighter weight, for large-scale deployments) |
+| `SHIORI_OUTBOUND_MAX_SIZE_BYTES` | optional | Limit for **outbound** attachments (default 50MB, the Telegram bot API limit). Excess is rejected before sending with `AttachmentTooLarge` (exit 2) |
+| `SHIORI_PDF_IMAGE_MAX_PAGES` | optional | Upper limit on the number of leading pages `render()` pre-renders to images on PDF receipt (default 20). A disk/token safety valve for very many pages. The 21st page onward is generated on-demand with `render-pdf --pages`, `page_count` is the actual total |
 
-> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required, fail-fast). Working hours (e.g., 9-17) are expressed via the cloud routine cron (`0 9-16 * * 1-5`) + duration (no clock held in code). The `/goal` deadline-driven operational variables (`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh` (SSoT. `TS_SESSION_DURATION_SEC` is abolished = the duration setting value is not exposed to env, a pure 2-layer design). `BASH_MAX_TIMEOUT_MS=600000` is in `{private_dir}/.claude/settings.json`. Details in [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md).
+> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required, fail-fast). Working hours (e.g., 9-17) are expressed via the cloud routine cron (`0 9-16 * * 1-5`) + duration (no clock held in code). The `/goal` deadline-driven operational variables (`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh` (SSoT. `SHIORI_SESSION_DURATION_SEC` is abolished = the duration setting value is not exposed to env, a pure 2-layer design). `BASH_MAX_TIMEOUT_MS=600000` is in `{private_dir}/.claude/settings.json`. Details in [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md).
 
 ## Security
 
@@ -127,8 +127,8 @@ The operation by which the agent that invoked `/shiori-secretary` registers, upd
 - **Output leak scan** — before sending, the agent confirms the reply contains no token / env name / system prompt / absolute path
 - **secrets are env-only** — do not place the bot token in code or commits, do not leave it in logs
 - **Lease lock** — heartbeat + TTL structurally prevents duplicate responses from concurrent sessions
-- **media size limit** (DoS defense) — anything exceeding `TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES` (default 20MB) is not downloaded, skipped + flagged
-- **media retention** (prevent long-term residency of confidential documents) — media past `TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS` (default 24h) is deleted by `cleanup_media_dir`
+- **media size limit** (DoS defense) — anything exceeding `SHIORI_MEDIA_MAX_SIZE_BYTES` (default 20MB) is not downloaded, skipped + flagged
+- **media retention** (prevent long-term residency of confidential documents) — media past `SHIORI_MEDIA_RETENTION_HOURS` (default 24h) is deleted by `cleanup_media_dir`
 - **Log secrecy of token-bearing URLs** — the TOKEN in `/file/bot<TOKEN>/<file_path>` is not left in exception messages / stderr / logs (chain broken with `raise ... from None`, only `safe_id=file_id[:8]` displayed, explicitly verified in tests)
 - **mime_type is Telegram's self-declaration** — not trusted; the result of the parent-process agent opening it with `Read` is taken as truth (defense against rename attacks)
 - **Absolute path secrecy on render failure** — the stderr warning at the Adapter's internal catch shows only `file_id[:8]`, not the absolute `local_path` path (explicitly verified in tests)
@@ -139,5 +139,5 @@ The operation by which the agent that invoked `/shiori-secretary` registers, upd
 - **Output leak scan of the transcript** — confidential content within audio (e.g., a password read aloud) may ride on the emit via the transcript, so `rendered_text` (transcript) is also included in the pre-send-reply leak scan
 - **No audio intermediate files** — PyAV decodes in-memory (numpy) to 16kHz mono float, **never writing an ffmpeg intermediate wav to disk**. No intermediate artifact of confidential voice remains on disk
 - **Output leak scan of outbound attachments** — before sending, the agent confirms that agent-generated artifacts (md/docx/image/PDF) contain no token / env name / system prompt / confidential content. The code does not inspect binary contents = the agent's judgment responsibility
-- **Outbound size limit** (accident prevention) — anything exceeding `TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES` (default 50MB) is rejected before sending with `AttachmentTooLarge`
+- **Outbound size limit** (accident prevention) — anything exceeding `SHIORI_OUTBOUND_MAX_SIZE_BYTES` (default 50MB) is rejected before sending with `AttachmentTooLarge`
 - **Log secrecy of token-bearing URLs on send** — sendPhoto/sendDocument failure exceptions carry only the method / chat_id / file name, not the URL / token (same shape as the receive-side media_downloader, verified in tests)

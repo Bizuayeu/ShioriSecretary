@@ -36,7 +36,7 @@ class FetchAuthorizedUpdates:
 
         - 未認可 chat の update は Domain で破棄、エージェントに渡さない
         - offset は取得した update 群（認可不問）の最大値に応じて advance（古い update の再取得を防ぐ）
-        - Stage 6.2: caption は normalized_text に統合（merge_caption_into_text）、media は update に保持
+        - caption は normalized_text に統合（merge_caption_into_text）、media は update に保持
         """
         offset = self._offset_store.load()
         updates = self._source.fetch(offset, timeout_seconds)

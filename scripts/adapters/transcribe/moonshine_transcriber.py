@@ -1,4 +1,4 @@
-"""Moonshine で音声を transcript 化する MediaRenderer Port 実装（Stage 9.5b）。
+"""Moonshine で音声を transcript 化する MediaRenderer Port 実装。
 
 FfmpegAudioPreprocessor で 16kHz mono float にした音声を Moonshine 日本語モデルで
 transcribe し、transcript を RenderedMedia.rendered_text に乗せ render_status="ok"。

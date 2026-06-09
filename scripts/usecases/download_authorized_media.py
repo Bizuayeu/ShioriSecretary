@@ -1,9 +1,9 @@
-"""認可済み update の media を size 制限内で download する UseCase（Stage 6.2）。
+"""認可済み update の media を size 制限内で download する UseCase。
 
 実 I/O は Port（MediaDownloader）の向こう側。size 超過は内部で
 MediaSizeLimitExceeded を raise → 同 UseCase 内で catch して
 MediaDownloadResult.skip_reason="media_size_exceeded" に変換する。
-（Stage 1 の flag_injection 同型の「フラグ化して emit、ブロックはしない」原則）
+（flag_injection 同型の「フラグ化して emit、ブロックはしない」原則）
 """
 from __future__ import annotations
 

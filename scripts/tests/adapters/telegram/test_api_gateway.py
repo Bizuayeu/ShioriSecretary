@@ -226,7 +226,7 @@ def test_429_invalid_retry_after_does_not_sleep(monkeypatch):
     assert sleep_calls == []
 
 
-# === Stage 6.3: get_file ===
+# === get_file ===
 
 
 def test_get_file_returns_file_path():
@@ -286,7 +286,7 @@ def test_get_file_raises_when_ok_false():
         gw.get_file("missing")
 
 
-# === Stage 8.3: outbound media（sendPhoto / sendDocument / sendChatAction） ===
+# === outbound media（sendPhoto / sendDocument / sendChatAction） ===
 
 
 def test_send_no_attachment_uses_sendmessage():

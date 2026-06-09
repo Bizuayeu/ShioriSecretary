@@ -1,4 +1,4 @@
-"""Composition Root の単体テスト（Stage 3）。
+"""Composition Root の単体テスト。
 
 load_config の fail-fast（union 廃止）と build_media_stack の配線（pdf cap 注入・
 optional transcriber/pdf の None フォールバック）を pin する。重い renderer 構築は
@@ -22,8 +22,8 @@ from usecases.render_authorized_media import RenderAuthorizedMedia
 def clean_env(monkeypatch):
     for k in [
         "TELEGRAM_BOT_TOKEN",
-        "TELEGRAM_SECRETARY_AUTHORIZED_CHATS",
-        "TELEGRAM_SECRETARY_STATE_DIR",
+        "SHIORI_AUTHORIZED_CHATS",
+        "SHIORI_STATE_DIR",
     ]:
         monkeypatch.delenv(k, raising=False)
 
@@ -40,8 +40,8 @@ def test_load_config_raises_on_missing_env():
 def test_load_config_returns_config_when_env_ready(monkeypatch, tmp_path):
     """env が揃い config.json があれば Config を返す。"""
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "TEST")
-    monkeypatch.setenv("TELEGRAM_SECRETARY_AUTHORIZED_CHATS", "[100]")
-    monkeypatch.setenv("TELEGRAM_SECRETARY_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("SHIORI_AUTHORIZED_CHATS", "[100]")
+    monkeypatch.setenv("SHIORI_STATE_DIR", str(tmp_path))
     cfg = tmp_path / "config.json"
     cfg.write_text(json.dumps({"session_duration_sec": 7200}), encoding="utf-8")
     monkeypatch.setattr("infrastructure.config._default_config_path", lambda: cfg)

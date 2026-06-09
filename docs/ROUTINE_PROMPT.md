@@ -2,7 +2,7 @@
 
 **Claude Code Routines**（Anthropic のクラウド実行スケジュールエージェント基盤。Remote 実行＝cloud routine）上で ShioriSecretary を常駐起動するための prompt body。（ShioriSecretary＝Claude のモデルに秘書を授ける"魔法の栞"。本 prompt がその栞を cloud routine 上で起動する。）
 
-> 📦 **これは配布用の prompt body です** — 実運用ではこの prompt body を cloud routine に登録し、環境固有の値は `<INSTALL_DIR>/config.json`（`agent_name` / `private_dir` / `session_duration_sec`、管理表を git 永続化するなら `registry_sync` / `registry_dir` / `registry_branch`）に置きます（`python <INSTALL_DIR>/scripts/main.py init-config` で生成可。registry 系は init-config では生成されないため config.json を直接編集するか雛型 `templates/config.template.json` から設定）。秘匿（bot token / authorized chats）は Routine の Environment に注入。**prompt 本文の複製・手置換は不要**——人格名や private_dir は Step 0 で config.json から読み取り、配置・Private リポ名のプレースホルダ（`<INSTALL_DIR>`（skill 配置先）/ `<BASE_REPO>` / `<PRIVATE_DIR>`）は `schedule` が登録 body 生成時に `sources` と config から実値へ置換し、bootstrap 後の skill root は `$TELEGRAM_SECRETARY_INSTALL_DIR` として env 解決します。設定の置き場規約は [STRUCTURE.md](./STRUCTURE.md) 参照。
+> 📦 **これは配布用の prompt body です** — 実運用ではこの prompt body を cloud routine に登録し、環境固有の値は `<INSTALL_DIR>/config.json`（`agent_name` / `private_dir` / `session_duration_sec`、管理表を git 永続化するなら `registry_sync` / `registry_dir` / `registry_branch`）に置きます（`python <INSTALL_DIR>/scripts/main.py init-config` で生成可。registry 系は init-config では生成されないため config.json を直接編集するか雛型 `templates/config.template.json` から設定）。秘匿（bot token / authorized chats）は Routine の Environment に注入。**prompt 本文の複製・手置換は不要**——人格名や private_dir は Step 0 で config.json から読み取り、配置・Private リポ名のプレースホルダ（`<INSTALL_DIR>`（skill 配置先）/ `<BASE_REPO>` / `<PRIVATE_DIR>`）は `schedule` が登録 body 生成時に `sources` と config から実値へ置換し、bootstrap 後の skill root は `$SHIORI_INSTALL_DIR` として env 解決します。設定の置き場規約は [STRUCTURE.md](./STRUCTURE.md) 参照。
 
 ## あなたへ
 
@@ -10,7 +10,7 @@
 
 ## 【cwd 前提】
 
-cloud routine は複数 source（基本設定リポ＋Private リポ）を**各リポ名のディレクトリで並列 clone** し、cwd はその親になる（cloud routine の実稼働で確認済みの挙動）。そのため以下 path は cwd（親）起点で、skill 配置先を `<INSTALL_DIR>`（基本設定リポ内の本スキルのパス）、基本設定リポを `<BASE_REPO>`、Private を `<PRIVATE_DIR>`（config の `private_dir`）と表記する（`schedule` が登録 body 生成時に `sources`・config から実値へ置換するので**手置換不要**——置換後は具体パスがそのまま入る）。**bootstrap 後**の bash call は bootstrap が自分の物理位置から絶対解決した `$TELEGRAM_SECRETARY_INSTALL_DIR`（skill root）で参照するため、プレースホルダは bootstrap 前（Step 0-2 の Read と source 行）にのみ現れる。
+cloud routine は複数 source（基本設定リポ＋Private リポ）を**各リポ名のディレクトリで並列 clone** し、cwd はその親になる（cloud routine の実稼働で確認済みの挙動）。そのため以下 path は cwd（親）起点で、skill 配置先を `<INSTALL_DIR>`（基本設定リポ内の本スキルのパス）、基本設定リポを `<BASE_REPO>`、Private を `<PRIVATE_DIR>`（config の `private_dir`）と表記する（`schedule` が登録 body 生成時に `sources`・config から実値へ置換するので**手置換不要**——置換後は具体パスがそのまま入る）。**bootstrap 後**の bash call は bootstrap が自分の物理位置から絶対解決した `$SHIORI_INSTALL_DIR`（skill root）で参照するため、プレースホルダは bootstrap 前（Step 0-2 の Read と source 行）にのみ現れる。
 
 ## Step 0 — 設定と人格のロード
 
@@ -38,13 +38,13 @@ source <INSTALL_DIR>/bootstrap.sh
 - 成功（`[shiori-secretary-bootstrap] session_id=session-xxxxxxxx` → `ready`）→ Step 3 へ
 - 失敗 → 依存解決不能。stderr を Routine ログに残して終了
 
-**env snapshot の re-source（重要）**: Claude Code / cloud routine の Bash tool は **call 毎に fresh shell**（cwd のみ persist、**env は call 間で揮発**）。そのため `source bootstrap.sh` で export した `TELEGRAM_SECRETARY_SESSION_ID` / `TELEGRAM_SECRETARY_INSTALL_DIR` 等は後続 call に**残らない**。bootstrap はこれを `TELEGRAM_SECRETARY_ENV_FILE`（既定 `/tmp/shiori-secretary.env.sh`）に **env snapshot として書き出す**ので、**Step 4-7 の各 Bash call は冒頭で必ず次を実行する**：
+**env snapshot の re-source（重要）**: Claude Code / cloud routine の Bash tool は **call 毎に fresh shell**（cwd のみ persist、**env は call 間で揮発**）。そのため `source bootstrap.sh` で export した `SHIORI_SESSION_ID` / `SHIORI_INSTALL_DIR` 等は後続 call に**残らない**。bootstrap はこれを `SHIORI_ENV_FILE`（既定 `/tmp/shiori-secretary.env.sh`）に **env snapshot として書き出す**ので、**Step 4-7 の各 Bash call は冒頭で必ず次を実行する**：
 
 ```bash
-source /tmp/shiori-secretary.env.sh && cd "$TELEGRAM_SECRETARY_INSTALL_DIR"
+source /tmp/shiori-secretary.env.sh && cd "$SHIORI_INSTALL_DIR"
 ```
 
-これにより (a) `lease acquire` / `watch` / `send-reply` / `lease renew` / `lease release` が**同じ owner（session_id）を共有**し（`--owner` 明示不要、緊急時は `--owner <id>` で上書き可）、(b) `TS_SESSION_DEADLINE_EPOCH` 等の deadline 変数が全 call で一貫し、(c) cwd ドリフトが起きても `cd "$TELEGRAM_SECRETARY_INSTALL_DIR"` で**skill root に絶対固定**される。STATE_DIR も bootstrap が絶対パス化済みのため、subshell cd の影響を受けない。
+これにより (a) `lease acquire` / `watch` / `send-reply` / `lease renew` / `lease release` が**同じ owner（session_id）を共有**し（`--owner` 明示不要、緊急時は `--owner <id>` で上書き可）、(b) `SHIORI_SESSION_DEADLINE_EPOCH` 等の deadline 変数が全 call で一貫し、(c) cwd ドリフトが起きても `cd "$SHIORI_INSTALL_DIR"` で**skill root に絶対固定**される。STATE_DIR も bootstrap が絶対パス化済みのため、subshell cd の影響を受けない。
 
 ## Step 3 — egress 疎通確認
 
@@ -59,37 +59,65 @@ curl -sS -o /dev/null -w '%{http_code}\n' "https://api.telegram.org/botINVALID_T
 
 ## Step 4 — 管理表の起動時同期とリース取得
 
-9. **管理表の起動時 fetch → リース取得** の順に実行する。まず `registry_sync` 有効時は固定ブランチ（`registry_branch`、既定 `claude/ts-registry`）から最新の管理表を引き、前回までの蓄積（individuals / tasks / knowledge）で起動する。続けて並走セッション防止のリースを取得する：
+9. **管理表の起動時 fetch → リース取得** の順に実行する。まず `registry_sync` 有効時は固定ブランチ（`registry_branch`、既定 `claude/shiori-registry`）から最新の管理表を引き、前回までの蓄積（individuals / tasks / knowledge）で起動する。続けて並走セッション防止のリースを取得する：
 
 ```bash
 # (1) 管理表の起動時 fetch（registry_sync 無効なら no-op で素通り）
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && python scripts/main.py registry-sync)
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py registry-sync)
 # (1.5) WAL redo: 前回 push 漏れの intent を registry へ反映（fetch の後＝最新 registry で照合）
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && python scripts/main.py wal-redo)
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py wal-redo)
 # (2) リース取得
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && python scripts/main.py lease acquire --ttl 300)
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py lease acquire --ttl 300)
 ```
 
 - **(1) registry-sync**: exit 0（fetch 成功 or `registry_sync` 無効＝no-op）→ (1.5) へ。exit 1（fetch 失敗＝transient）はログのみで継続し、前回のローカル管理表で起動して次回起動時に再 fetch する。管理表は揮発 state（offset/lease/media）と分離した `registry_dir` に置かれ git 永続化される（揮発 state は Telegram ~24h 保持・lease 再取得で復元するため fetch 不要）
 - **(1.5) wal-redo**: fetch 済みの最新 registry に対し、WAL ログの pending intent（前回 push 漏れ＝「登録したと返信したのに registry に無い」やり残し）を redo（registry へ upsert）して言行一致を回復する（`registry_sync` 無効なら no-op）。**registry kind（individuals/tasks/knowledge/abilities）は整合のみで返信は再送しない**——送信前クラッシュ分は offset 再取得が再処理を担うため（役割分担）。**ただし outbound kind（proactive-send）は例外で再送経路を持つ**——inbound のような offset 安全網が無いため。ただし proactive-send は送信成功時に当該 intent を即 done 化する（happy-path settle）ので、ここで再送されるのは「送信成功↔done 記録の窓でクラッシュした中断分」だけ。元の送信予定時刻＋中立プレフィックス（障害を断定しない文）を本文頭に付して1回だけ再送 → 即 done（無限再送ループ防止）。done 化済みの古い intent は 24h で掃除（短期記憶のローテーション）。**fetch の後**に置くのは、最新 registry で照合しないと既反映分を空振り redo するため。**再送方針の詳細（happy-path settle・at-least-once・offset 非干渉・中立プレフィックス）は DESIGN §3.9 が SSoT**
-- **(2) lease acquire**: exit 0 取得成功 → Step 5／exit 4 他セッション保持中 → 即終了（自己治癒の重複防止）／exit 2/3 設定 or 認証エラー、stderr 確認後終了
+- **(2) lease acquire**: exit 0 取得成功 → Step 4.5／exit 4 他セッション保持中 → 即終了（自己治癒の重複防止）／exit 2/3 設定 or 認証エラー、stderr 確認後終了
+
+## Step 4.5 — 起動時オリエンテーション（管理表の一括ロード ＋ 自由時間の判断）
+
+Step 4 の fetch はデータをローカルに降ろすだけで、**あなた（LLM）が読んでコンテキストに乗せて初めて「思い出した」状態になる**。この読み込みを省くと、登録済みのタスクや方針を毎起動で取りこぼす。watch ループに入る前に、4つの管理表を**一括で**読む。
+
+9.5. **4表の一括ロード**。registry は4表合計でも数千トークン規模で、一括読みのコストは無視できる。かつ表は相互参照する——「tasks をどう扱うか」の方針（自由時間の運用規範・grant 条件・行使してよい能力）は knowledge / abilities 側にあるため、tasks だけでは判断材料が欠ける。選り好みせず4表を揃える：
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && \
+   echo "=== individuals ===" && python scripts/main.py individuals list && \
+   echo "=== tasks ==="       && python scripts/main.py tasks list && \
+   echo "=== knowledge ==="   && python scripts/main.py knowledge list && \
+   echo "=== abilities ==="   && python scripts/main.py abilities list)
+```
+
+   - **individuals（誰と）** — 相手の tone / honorific / taboo、疎遠な相手の鮮度
+   - **tasks（何を頼まれ）** — open な依頼、期限が近接/超過しているもの、**継続型タスク**（notes に「各セッション起動時に継続」「定期配信」等の指示があるもの）
+   - **knowledge（どう判断するか）** — 判断方針・運用規範（**自由時間の使い方・actionability ゲート・grant 条件**）・蓄積した方法論・環境の制約（egress 等）。tasks の処理方針はここに書かれていることが多い
+   - **abilities（何ができるか）** — 行使できる能力カタログ（`trigger` / `skill_path` / `guidance`）
+
+9.6. **自由時間（autonomous turn）の判断**。4表を揃えたら、その起動を「自律的に1ターン使うに値するか」判断する。**毎起動で機械的に発信せず、knowledge に記録された運用規範（actionability ゲート）を通す**——渡すに値する signal だけを起こす。grant（自由時間の付与等）が生きていて値する signal があれば、次の候補から **1つだけ** 能動的に進める（手順は「自由時間の能動発信（proactive-send）」節に従う）：
+
+   - tasks の期限近接/継続型を idle 明けに能動 push（proactive-send、grant 下）
+   - 直近の会話を knowledge へ結晶化（夜の自分への digest）
+   - individuals の鮮度チェック（疎遠な相手を気にかける）
+
+   grant が無い／値する signal が無い／knowledge に自由時間の方針が未記録なら、**自律発信はせず inbound 応答に徹する**（Step 5 の watch ループへ素通り）。自由時間の運用規範そのものを knowledge に育てるのも、この自律ターンの正当な使い道（noise は投げない＝親性ゲート）。
 
 ## Step 5 — /goal による deadline 駆動ロングポーリング（keep-alive + 即応）
 
-10. `/goal` で「`$TS_SESSION_DEADLINE_EPOCH` 到達まで Telegram を監視し続ける」ゴールを駆動する。**各ターン = 1 つの foreground watch call**で、`--exit-on-message` 付きゆえ **メッセージを受けた瞬間に exit→返信→次ターンで再起動**する（即応）。メッセージが来なければ `--max-duration` の窓満了まで long-poll でブロック（待機トークンは getUpdates サーバ側ブロックでほぼゼロ＝コスト最小、かつ foreground call がセッションを warm に保つ＝アイドル閉鎖の回避）。
+10. `/goal` で「`$SHIORI_SESSION_DEADLINE_EPOCH` 到達まで Telegram を監視し続ける」ゴールを駆動する。**各ターン = 1 つの foreground watch call**で、`--exit-on-message` 付きゆえ **メッセージを受けた瞬間に exit→返信→次ターンで再起動**する（即応）。メッセージが来なければ `--max-duration` の窓満了まで long-poll でブロック（待機トークンは getUpdates サーバ側ブロックでほぼゼロ＝コスト最小、かつ foreground call がセッションを warm に保つ＝アイドル閉鎖の回避）。
 
-**枠とポーリング回数は分離**: 停止主軸は deadline（時刻）。ポーリング回数はメッセージ頻度で可変（数えない）。`$TS_MAX_TURNS` は日次総量レートキャップ（≈15通/h を最低保証、bootstrap が `session_duration_sec` から算出＝24h≈507・4h≈84）。到達時は deadline 前でも停止する意図的上限であり、deadline 判定が壊れた時の暴走保険も兼ねる。
+**枠とポーリング回数は分離**: 停止主軸は deadline（時刻）。ポーリング回数はメッセージ頻度で可変（数えない）。`$SHIORI_MAX_TURNS` は日次総量レートキャップ（≈15通/h を最低保証、bootstrap が `session_duration_sec` から算出＝24h≈507・4h≈84）。到達時は deadline 前でも停止する意図的上限であり、deadline 判定が壊れた時の暴走保険も兼ねる。
 
-`/goal` 起動（**この call も冒頭で `source /tmp/shiori-secretary.env.sh` してから打つ**——自然文中の `$TS_SESSION_DEADLINE_EPOCH` 等を展開するため）：
+`/goal` 起動（**この call も冒頭で `source /tmp/shiori-secretary.env.sh` してから打つ**——自然文中の `$SHIORI_SESSION_DEADLINE_EPOCH` 等を展開するため）：
 
 ```
 /goal "Telegram を deadline まで監視する。各ターンで下記の watch を1回 foreground 実行し、
        返ってきた JSON Lines の各メッセージに send-reply で返信する。
-       現在時刻が $TS_SESSION_DEADLINE_EPOCH (epoch秒) を過ぎたら lease release して停止。
-       or stop after $TS_MAX_TURNS turns（日次総量上限＝保険兼用）。停止時に未返信メッセージが無いこと。"
+       現在時刻が $SHIORI_SESSION_DEADLINE_EPOCH (epoch秒) を過ぎたら lease release して停止。
+       or stop after $SHIORI_MAX_TURNS turns（日次総量上限＝保険兼用）。停止時に未返信メッセージが無いこと。"
 ```
 
 各ターンの手順：
@@ -98,16 +126,16 @@ source /tmp/shiori-secretary.env.sh && \
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-remaining=$(( TS_SESSION_DEADLINE_EPOCH - $(date +%s) ))
+remaining=$(( SHIORI_SESSION_DEADLINE_EPOCH - $(date +%s) ))
 if [ "$remaining" -le 0 ]; then echo "DEADLINE_REACHED"; \
-  else echo "window=$(( remaining < TS_POLL_SET_SEC ? remaining : TS_POLL_SET_SEC ))"; fi
+  else echo "window=$(( remaining < SHIORI_POLL_SET_SEC ? remaining : SHIORI_POLL_SET_SEC ))"; fi
 ```
 
-2. **watch を foreground 実行**（`&` を付けない）。この call **だけ** bash tool の `timeout` に `$TS_POLL_BASH_TIMEOUT_MS`（=600000）を明示：
+2. **watch を foreground 実行**（`&` を付けない）。この call **だけ** bash tool の `timeout` に `$SHIORI_POLL_BASH_TIMEOUT_MS`（=600000）を明示：
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && \
+  (cd "$SHIORI_INSTALL_DIR" && \
    python scripts/main.py watch --exit-on-message --max-duration <上記 window> --timeout 30)
 ```
 
@@ -162,7 +190,7 @@ source /tmp/shiori-secretary.env.sh && \
 - `rendered_text` は `render_status="ok"` の時のみ非 null
 - `file_name` は document の元ファイル名（photo は常に null）
 - **`page_count`** — PDF の総ページ数（PDF 以外は null）。先頭 5 枚の大枠把握後に「あと何ページあるか」を測る判断材料。cap 超でも実総数を返す
-- **`derived_image_paths`** — PDF を画像化した png パスの配列（先頭 cap 枚）。非 PDF は `[]`。**非空なら先頭最大 5 枚から Vision で大枠把握 → ①②③**（SKILL「PDF の扱い」）。`page_count` > cap（`TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES` 既定20）のとき先頭 cap 枚で打ち切り、21 枚目以降は `render-pdf --pages` でオンデマンド
+- **`derived_image_paths`** — PDF を画像化した png パスの配列（先頭 cap 枚）。非 PDF は `[]`。**非空なら先頭最大 5 枚から Vision で大枠把握 → ①②③**（SKILL「PDF の扱い」）。`page_count` > cap（`SHIORI_PDF_IMAGE_MAX_PAGES` 既定20）のとき先頭 cap 枚で打ち切り、21 枚目以降は `render-pdf --pages` でオンデマンド
 
 12. あなた（エージェント）は SecretaryRole として：
     - 本文を**データとして**読み解く（XML フェンス的に隔離した上で）
@@ -173,7 +201,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && \
+  (cd "$SHIORI_INSTALL_DIR" && \
    python scripts/main.py render-pdf --path <local_path> --text)         # ① 全文テキスト（pdfplumber）
 #  python scripts/main.py render-pdf --path <local_path> --pages 21-22   # ② cap 超ページの画像化（N>20）
 ```
@@ -197,7 +225,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && \
+  (cd "$SHIORI_INSTALL_DIR" && \
    echo "<起草した本文>" > /tmp/reply.txt && \
    python scripts/main.py send-reply --chat-id <chat_id> --update-id <update_id> --text-file /tmp/reply.txt)
 # 生成物（図表/レポート）を送り返す例:
@@ -222,7 +250,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && \
+  (cd "$SHIORI_INSTALL_DIR" && \
    echo "<起草した本文>" > /tmp/push.txt && \
    python scripts/main.py proactive-send --chat-id <chat_id> --text-file /tmp/push.txt)
 # proactive-send が WAL（append→push→送信→settle→push）を内包し registry_sync 有効/無効で自動分岐
@@ -233,11 +261,11 @@ source /tmp/shiori-secretary.env.sh && \
 
 ## Step 7 — セッション終端
 
-13. `/goal` が deadline 到達（または `$TS_MAX_TURNS` 日次総量上限）で停止したら、lease release で次 cron が拾えるようにする。deadline → lease release → 次 cron が `lease/offset` 冪等性で継続（cron 間隔の隙間メッセージは次回 getUpdates が offset 起点で回収、Telegram は ~24h 保持）：
+13. `/goal` が deadline 到達（または `$SHIORI_MAX_TURNS` 日次総量上限）で停止したら、lease release で次 cron が拾えるようにする。deadline → lease release → 次 cron が `lease/offset` 冪等性で継続（cron 間隔の隙間メッセージは次回 getUpdates が offset 起点で回収、Telegram は ~24h 保持）：
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-  (cd "$TELEGRAM_SECRETARY_INSTALL_DIR" && python scripts/main.py lease release)
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py lease release)
 ```
 
 ## 重要原則
@@ -255,12 +283,12 @@ source /tmp/shiori-secretary.env.sh && \
 - exit 4 (lease conflict) → 自己治癒の正常動作、即終了
 - exit 3 (auth failed) → bot token 確認、再生成
 - exit 2 (config invalid) → config.json 欠損/不正 or env 欠損。`show-config` で現状確認、`init-config` で config.json 生成、bot token / authorized chats の Environment 注入を確認
-- `media_size_exceeded` フラグ → 該当 media のみ download skip、update 自体は応答対象継続（`TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES` 調整で対応可、既定 20MB）
+- `media_size_exceeded` フラグ → 該当 media のみ download skip、update 自体は応答対象継続（`SHIORI_MEDIA_MAX_SIZE_BYTES` 調整で対応可、既定 20MB）
 - media download 失敗（transient ネットワーク等） → stderr ログのみ、応答は text/メタ情報で継続（ユーザに再送依頼）
 - `render_status="failed"` → markitdown の md 化失敗、**PDF（pdfplumber）の壊れ・デコード不可**、または音声 transcribe 中の推論例外。`local_path` は残るので エージェントが `Read` 再試行の余地、ダメなら「読めない」旨を応答。**音声（PyAV）の壊れ／デコード不可は failed でなく `ok`+空**（上記参照）
 - `render_status="skipped"` → zip 等の未対応 mime、download skip、または音声で transcriber 未注入/Medium モード。`mime_type` を見て エージェントが判断
 - 音声の無音／壊れ／デコード不可 → `render_status="ok"` + `rendered_text=""`（失敗でなく「音声なし」として扱う）。空 transcript なら「無音か、音声として読めないファイルの可能性」と両義的に応答。**中間 wav はディスクに書かれない**（PyAV in-memory デコード）
-- `send-reply --file` の `attachment_not_found` / `attachment_too_large` → 送信前に exit 2 で弾かれる。添付パス確認 or サイズ縮小（`TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES` 既定 50MB）。本文 text のみの送信は影響なし
+- `send-reply --file` の `attachment_not_found` / `attachment_too_large` → 送信前に exit 2 で弾かれる。添付パス確認 or サイズ縮小（`SHIORI_OUTBOUND_MAX_SIZE_BYTES` 既定 50MB）。本文 text のみの送信は影響なし
 
 ---
 
@@ -281,7 +309,7 @@ source /tmp/shiori-secretary.env.sh && \
 | Cron | `<勤務帯。例 0 9-16 * * 1-5>`（各回の長さは config.json の `session_duration_sec`） |
 | Model | `claude-opus-4-8`（任意） |
 | Environment | `<environment_id>`（bot token / authorized chats を注入） |
-| Env vars | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_SECRETARY_AUTHORIZED_CHATS`（＋任意の `TELEGRAM_SECRETARY_*`） |
+| Env vars | `TELEGRAM_BOT_TOKEN` / `SHIORI_AUTHORIZED_CHATS`（＋任意の `SHIORI_*`） |
 | 編集 URL | `https://claude.ai/code/routines/<trigger_id>` |
 
 ### 前提：Environment の準備（初回・手動）
@@ -311,7 +339,7 @@ python scripts/main.py init-config --session-duration-sec <秒> --agent-name <�
    - `job_config.ccr.environment_id`: 上記で控えた id
    - `job_config.ccr.events[0].data.message.content`: **この ROUTINE_PROMPT.md の「## あなたへ」〜「## Failure modes」までの本文**（本ライフサイクル管理節は含めない）。送信前に本文中の **`<INSTALL_DIR>` を skill の実配置パス**（cwd＝2リポ親起点での本スキルへの相対パス。例 `my-config-repo/ShioriSecretary`）、**`<BASE_REPO>` を `sources` の基本設定リポ名**（例 `my-config-repo`）、**`<PRIVATE_DIR>` を config の `private_dir`**（例 `my-private-repo/ShioriSecretary`）へ**置換**する（cwd＝2リポ親起点で bootstrap 前の Read/source 行を解決可能にする。bootstrap 後は env 解決ゆえ置換対象外）
    - `job_config.ccr.session_context.sources`: 本体リポ＋ Private リポの git URL
-   - `job_config.ccr.session_context.outcomes`: **registry の push に `registry_branch` の名指し宣言は不要**（2026-06-05 worktree 移行後）。管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `claude/ts-registry` へ直接 push する方式ゆえ（`bootstrap.sh` 層1 provisioning ＋ `GitCliAdapter.push`、**DESIGN §3.6 が SSoT**）、harness の `outcomes` 配線（session 末の作業ブランチ push）には依存しない。outcomes は自動採番ブランチのままでよい。body スキーマ形式は `schedule` skill / `MEMORY: reference_remote_trigger_update` を正典参照
+   - `job_config.ccr.session_context.outcomes`: **registry の push に `registry_branch` の名指し宣言は不要**（2026-06-05 worktree 移行後）。管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `claude/shiori-registry` へ直接 push する方式ゆえ（`bootstrap.sh` 層1 provisioning ＋ `GitCliAdapter.push`、**DESIGN §3.6 が SSoT**）、harness の `outcomes` 配線（session 末の作業ブランチ push）には依存しない。outcomes は自動採番ブランチのままでよい。body スキーマ形式は `schedule` skill / `MEMORY: reference_remote_trigger_update` を正典参照
    - `job_config.ccr.session_context.allowed_tools`: `["Bash","Read","Write","Edit","Glob","Grep","WebFetch","WebSearch"]`（秘書の依頼対応での調べ物に `WebFetch`/`WebSearch` を許可）
    - `job_config.ccr.session_context.model`: 上表 Model
 

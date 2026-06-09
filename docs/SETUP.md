@@ -33,7 +33,7 @@
 ### ② 自分の chat_id を知る
 
 1. Telegram で **@userinfobot** に話しかける
-2. 返ってくる数値 **Id**（例 `123456789`）を控える ← これが `TELEGRAM_SECRETARY_AUTHORIZED_CHATS`
+2. 返ってくる数値 **Id**（例 `123456789`）を控える ← これが `SHIORI_AUTHORIZED_CHATS`
 
 > **token と chat_id は別物です。** token は bot の鍵（BotFather 発行）、chat_id はあなた個人の宛先（@userinfobot で判明）。個人 DM では `chat_id = user_id`。
 
@@ -62,14 +62,14 @@ marketplace からインストール、または基本設定リポの `ShioriSec
 ```json
 {
   "registry_sync": true,
-  "registry_dir": "ts-registry-wt",
-  "registry_branch": "claude/ts-registry"
+  "registry_dir": "shiori-registry-wt",
+  "registry_branch": "claude/shiori-registry"
 }
 ```
 
 - `registry_sync`: `true` で管理表を固定ブランチへ git 永続化（更新のたび commit&push＋起動時 fetch）。ローカル動作確認では `false`（git に触れない）
-- `registry_dir`: 永続管理表（individuals/tasks/knowledge/abilities）の置き場。**揮発 state（offset/lease/media）の `state_dir` とは別**にし、**非公開リポの独立した第二 git 作業ツリー（worktree）**を指す（bootstrap が `git worktree add` で冪等 provisioning、推奨値 `ts-registry-wt`）。**dev ツリー内サブディレクトリにすると起動時 fetch の `checkout -B` が親リポを破壊する**ため不可（→ DESIGN §3.6）。未設定なら `state_dir` にフォールバック
-- `registry_branch`: push 先の固定ブランチ（既定 `claude/ts-registry`）。`registry_remote`（既定 `origin`）と組で運用。揮発 state と分けることで「消えてよいもの」と「蓄積が本質のもの」を物理分離します
+- `registry_dir`: 永続管理表（individuals/tasks/knowledge/abilities）の置き場。**揮発 state（offset/lease/media）の `state_dir` とは別**にし、**非公開リポの独立した第二 git 作業ツリー（worktree）**を指す（bootstrap が `git worktree add` で冪等 provisioning、推奨値 `shiori-registry-wt`）。**dev ツリー内サブディレクトリにすると起動時 fetch の `checkout -B` が親リポを破壊する**ため不可（→ DESIGN §3.6）。未設定なら `state_dir` にフォールバック
+- `registry_branch`: push 先の固定ブランチ（既定 `claude/shiori-registry`）。`registry_remote`（既定 `origin`）と組で運用。揮発 state と分けることで「消えてよいもの」と「蓄積が本質のもの」を物理分離します
 
 ### ⑥ cloud routine に登録
 
@@ -80,7 +80,7 @@ marketplace からインストール、または基本設定リポの `ShioriSec
 - routine 本体（cron＋prompt body＋sources）を作成します
 - **sources は基本設定＋非公開**（分けるなら2つ、1リポにまとめるなら1つ）
 - prompt body 内の `<BASE_REPO>` / `<PRIVATE_DIR>` は schedule が自動で実リポ名に置換します（手置換不要）
-- **`registry_sync` を有効にした場合**、管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `registry_branch`（既定 `claude/ts-registry`）へ直接 push します（`bootstrap.sh` が worktree を provisioning、認証は cloud routine の git credential。DESIGN §3.6）。routine の `outcomes` への `registry_branch` 名指し宣言は不要です（2026-06-05 worktree 移行後）
+- **`registry_sync` を有効にした場合**、管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `registry_branch`（既定 `claude/shiori-registry`）へ直接 push します（`bootstrap.sh` が worktree を provisioning、認証は cloud routine の git credential。DESIGN §3.6）。routine の `outcomes` への `registry_branch` 名指し宣言は不要です（2026-06-05 worktree 移行後）
 
 > **`environment_id` は後から差し替え可能**です。先に routine を作っておき、次の ⑦ で環境を整えてから紐付ける流れが、一般には迷いにくくおすすめです。
 
@@ -90,7 +90,7 @@ claude.ai の Code → Environments で：
 
 - **環境変数**:
   - `TELEGRAM_BOT_TOKEN` = ① の token
-  - `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` = `[② の chat_id]`（JSON 整数配列。例 `[123456789]`）
+  - `SHIORI_AUTHORIZED_CHATS` = `[② の chat_id]`（JSON 整数配列。例 `[123456789]`）
 - **network policy（egress 許可）**: **`api.telegram.org` を許可** ← これが無いと起動時に `host_not_allowed` で止まります
 - 作成した Environment を routine に紐付け（GUI、または `/shiori-secretary schedule` の再実行で `environment_id` を指定）
 
@@ -123,7 +123,7 @@ claude.ai の Code → Environments で：
 | 返信が返らない | egress or 認可 | chat_id が `AUTHORIZED_CHATS` に入っているか、`api.telegram.org` egress が通っているか |
 | 管理表が毎回空に戻る | `registry_sync` 無効 or worktree 未 provisioning or git 認証不足 | config の `registry_sync:true` / `registry_dir`（独立 worktree）を確認 → bootstrap の `registry worktree provisioned/refreshed` ログと固定ブランチへの push 認証（git credential）を確認（DESIGN §3.6） |
 | `registry fetch failed`（起動時） | 固定ブランチ未作成 or git 認証不足 | 初回は対象ブランチが空でも継続（前回ローカル状態で起動）。git 認証（PAT 等）が Environment にあるか確認 |
-| 管理表が空＝記憶なし稼働（stderr に `WARNING: ... EMPTY tables`） | `registry_dir` が独立 worktree でない（dev ツリー内サブディレクトリ＝旧構成） | `registry_dir` を独立 worktree 値（`ts-registry-wt`）にする。bootstrap の `registry worktree provisioned/refreshed` ログを確認（→ DESIGN §3.6） |
+| 管理表が空＝記憶なし稼働（stderr に `WARNING: ... EMPTY tables`） | `registry_dir` が独立 worktree でない（dev ツリー内サブディレクトリ＝旧構成） | `registry_dir` を独立 worktree 値（`shiori-registry-wt`）にする。bootstrap の `registry worktree provisioned/refreshed` ログを確認（→ DESIGN §3.6） |
 
 ## 参照
 

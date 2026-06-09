@@ -1,8 +1,7 @@
-# Line-ending policy for this subtree, which is junction-shared with Homunculus-Weave
-# (Expertises/ShioriSecretary -> here). Normalize text to LF so the same physical files
-# stay consistent across both repos. Without this, plugins-weave's root (no .gitattributes
-# + core.autocrlf=true) re-CRLFs .md on checkout, causing perpetual phantom-M in
-# Homunculus-Weave whose policy is `* text=auto eol=lf`.
+# Line-ending policy for this repository.
+# Normalize text files to LF so the same physical files stay consistent across
+# platforms. Without this, Windows clients (core.autocrlf=true) re-CRLF .md/.sh on
+# checkout, breaking shell shebangs (#!/bin/bash) and producing phantom diffs.
 * text=auto eol=lf
 
 # Windows batch files need CRLF — cmd.exe mis-parses LF-terminated lines.

@@ -1,4 +1,4 @@
-"""R2-2: GitCliAdapter（GitSyncPort の subprocess 実装）の integration テスト。
+"""GitCliAdapter（GitSyncPort の subprocess 実装）の integration テスト。
 
 実 git で bare remote + work clone を立て、commit/push/non-ff/rebase/fetch を round-trip 検証。
 git 不在環境では skip。git メッセージは LC_ALL=C で英語固定（non-ff 検出の安定化）。
@@ -16,7 +16,7 @@ from domain.exceptions import PushRejectedError, RegistryWorktreeError
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git not on PATH")
 
-_BRANCH = "claude/ts-registry"
+_BRANCH = "claude/shiori-registry"
 _ENV = {**os.environ, "LC_ALL": "C", "LANG": "C"}
 
 

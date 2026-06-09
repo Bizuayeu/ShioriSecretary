@@ -93,7 +93,7 @@ Infrastructure → Interface(Adapter) → UseCase → Domain
 
 - **イベント駆動**: 管理表 add/remove のたびに固定ブランチへ commit & push。更新頻度が低く crash 耐性が高い
 - **commit/push 分離**: commit はローカル即時（確実）、push は best-effort（一時失敗は次回 sync でまとめて再送、ローカル commit は積まれるのでロスは commit 前 crash の極小窓のみ）
-- **固定ブランチ運用**: 専用ブランチ（`registry_branch`、既定 `claude/ts-registry`）へ push、起動時に fetch。feature ブランチ分岐や merge の手間を避ける（単一ファイル状態を持つ運用パターンの横展開）
+- **固定ブランチ運用**: 専用ブランチ（`registry_branch`、既定 `claude/shiori-registry`）へ push、起動時に fetch。feature ブランチ分岐や merge の手間を避ける（単一ファイル状態を持つ運用パターンの横展開）
 - **force 不使用**: 複数 JSON の独立した部分更新ゆえ、force（ツリー全体置換）は他ファイルの更新を壊す。通常 push（non-fast-forward 自動拒否が競合検出を内蔵）＋ 例外時のみ `pull --rebase` フォールバック。lease がシングルライターを保証し、外部更新（手動編集等）の例外にだけ rebase で保険をかける
 - **設定は config.json 正典**: `registry_sync` / `registry_dir` / `registry_branch` は非秘匿の運用設定ゆえ config.json（純2層）。cloud routine が fresh clone で読む
 
@@ -101,15 +101,15 @@ Infrastructure → Interface(Adapter) → UseCase → Domain
 
 `registry_dir` を Private dev リポの**サブディレクトリ**（例 `<PRIVATE_REPO>/ShioriSecretary/registry`）に置くと2つの欠陥が同時に出る——起動時 fetch の `checkout -B` が**親リポ全体のブランチを切替えて dev ツリーを破壊**（欠陥2）、かつ cloud routine の fresh clone では registry_dir が不在で `cwd=registry_dir` の git が `OSError`（欠陥1）。結果、**4管理表が空のまま「記憶なし」稼働**する事故が起きた（T0002 誤答・grant 未ロード）。registry_dir を**独立した第二 worktree**にして3層で根治する：
 
-- **層1（根治）** `bootstrap.sh`: `registry_dir` を Private リポの第二 worktree として冪等 provisioning（`git worktree add -B <branch> <registry_dir> origin/<branch>`、既存なら `checkout -B origin/<branch>` でリフレッシュ）。常に `origin/<branch>` 強制＝SSoT は origin、古いローカルブランチを掴まない。失敗は `_ts_die` せず継続し層3 が警告（graceful）
+- **層1（根治）** `bootstrap.sh`: `registry_dir` を Private リポの第二 worktree として冪等 provisioning（`git worktree add -B <branch> <registry_dir> origin/<branch>`、既存なら `checkout -B origin/<branch>` でリフレッシュ）。常に `origin/<branch>` 強制＝SSoT は origin、古いローカルブランチを掴まない。失敗は `_shiori_die` せず継続し層3 が警告（graceful）
 - **層2（防御）** `GitCliAdapter.fetch_checkout`: `checkout -B` の**前に** `rev-parse --show-toplevel == registry_dir` を検証、不一致なら `RegistryWorktreeError`（`GitSyncError` サブクラス）で停止＝親リポ誤爆を構造的に禁止
 - **層3（可観測）** `run_registry_fetch`: fetch 失敗時に「EMPTY tables＝記憶なし稼働」を WARNING 出力（exit code 不変、principal 一報は ROUTINE_PROMPT へ委譲）＝沈黙の空表稼働を可視化
 
-固定ブランチ `claude/ts-registry` は **registry 専用 orphan ブランチ**として **root 直下に registry 関連のみ**——4管理表（`individuals/ tasks/ knowledge/ abilities/`）＋ `wal/`（言行一致の機構ログ、§3.7）＋ `artifacts/`（秘書の成果物層、§3.10）——を持つ（旧: Private 全ツリー＋`ShioriSecretary/registry/` ネスト → 新: フラット）。これで第二 worktree が registry だけを最小展開し dev ツリーと干渉しない。**方式B（単一 worktree）**を Stage 1 spike で確定し、本番稼働（post-fix の cloud run が provisioning→fetch→write→push を完走）で実証済み。
+固定ブランチ `claude/shiori-registry` は **registry 専用 orphan ブランチ**として **root 直下に registry 関連のみ**——4管理表（`individuals/ tasks/ knowledge/ abilities/`）＋ `wal/`（言行一致の機構ログ、§3.7）＋ `artifacts/`（秘書の成果物層、§3.10）——を持つ（旧: Private 全ツリー＋`ShioriSecretary/registry/` ネスト → 新: フラット）。これで第二 worktree が registry だけを最小展開し dev ツリーと干渉しない。**方式B（単一 worktree）**を技術検証で確定し、本番稼働（post-fix の cloud run が provisioning→fetch→write→push を完走）で実証済み。
 
 > 設計の背骨は §2「決定論コア + エージェント判断の分離」の踏襲: git 操作（commit/push/rebase/fetch）は決定論の世界（コード・テスト可能）、「何を残すか」の判断は重要度の世界（エージェント）。
 
-> **cloud routine harness の作業ブランチについて**: cloud routine は session ごとに `<registry_branch>-<ランダム SUFFIX>`（例 `claude/ts-registry-AbCdE`）の作業ブランチをローカルに自動生成する。一方 registry_sync は `git push HEAD:<registry_branch>`（SUFFIX なし）で固定ブランチへ直接 push するため、管理表は常に1本（`registry_branch`）へ集約される。**harness 作業ブランチは commit が乗った時だけ GitHub に push される**ので、registry_cli 以外で git commit しない限り（＝作業ブランチが空のまま）リモートに残骸は生じない。`<registry_branch>-XXXXX` がリモートに増えていたら、それは session 中に registry_cli を通さない手動 commit が乗ったサイン——削除は手動掃除（`gh api -X DELETE .../git/refs/heads/<branch>`）で足り、毎 session の常設削除処理は要らない。
+> **cloud routine harness の作業ブランチについて**: cloud routine は session ごとに `<registry_branch>-<ランダム SUFFIX>`（例 `claude/shiori-registry-AbCdE`）の作業ブランチをローカルに自動生成する。一方 registry_sync は `git push HEAD:<registry_branch>`（SUFFIX なし）で固定ブランチへ直接 push するため、管理表は常に1本（`registry_branch`）へ集約される。**harness 作業ブランチは commit が乗った時だけ GitHub に push される**ので、registry_cli 以外で git commit しない限り（＝作業ブランチが空のまま）リモートに残骸は生じない。`<registry_branch>-XXXXX` がリモートに増えていたら、それは session 中に registry_cli を通さない手動 commit が乗ったサイン——削除は手動掃除（`gh api -X DELETE .../git/refs/heads/<branch>`）で足り、毎 session の常設削除処理は要らない。
 
 ### 3.7 なぜ WAL（Write-Ahead Log）で言行一致を保証するか（consistency vs durability）
 
@@ -149,9 +149,9 @@ individuals/tasks/knowledge が「事実データ」（誰と・何を頼まれ�
 
 管理表4表（individuals/tasks/knowledge/abilities、§3.1–3.8）は **決定論の世界**——`_REGISTRY_SPEC` 駆動の CRUD・スキーマ検証・WAL 保護を持つ構造化データ。対して `artifacts/` は秘書が生成する**非定型の成果物**（レビュー・章稿・レポート等）を置く層で、**重要度の世界**に属する。同じ `registry_dir` 配下に同居するが、性質が異なるため設計を分ける。
 
-- **なぜ CRUD/WAL/スキーマを持たせないか（本質）**: 成果物は「どう構造化するか」自体が秘書の判断（重要度の世界）。固定スキーマや CRUD subcommand を与えると、4表の決定論性に成果物の非定型性が混入する。`artifacts/` は **場所（`registry_dir/artifacts/`）と git 永続対象であること**だけを標準化し、ファイル構成・命名・索引（INDEX 等）は秘書に委ねる——実例として `mba50` は「章別 md ＋ INDEX」→「単一 JSON マスター」と形を変えており、**スキーマレスこそが要件**であることを示す。§3.5「情報の持ち方は情報の主体が決める」・§2 三世界分類の踏襲
-- **なぜ永続か**: 成果物は蓄積が本質（過去の成果物は資産）。§3.6 の git 永続（orphan ブランチ `claude/ts-registry`）に、4管理表・`wal/` と並べて `artifacts/` を載せる。揮発してよい `state_dir` とは永続要件が正反対
-- **なぜ backup はツリー同期か（ファイル固定でない）**: 管理表5点（4表＋WAL）が「単一ファイルの状態 SSoT」ゆえ固定列挙でコピーするのに対し、`artifacts/` はファイルが増減する成果物層ゆえ **ディレクトリ単位のツリー同期**（`/ts-registry-backup` が `ls-tree -r` で全ファイル列挙・`rm -rf` で stale 削除も反映）。配布先に `artifacts/` が無ければ空ループ＝no-op（母集団スコープ安全）
+- **なぜ CRUD/WAL/スキーマを持たせないか（本質）**: 成果物は「どう構造化するか」自体が秘書の判断（重要度の世界）。固定スキーマや CRUD subcommand を与えると、4表の決定論性に成果物の非定型性が混入する。`artifacts/` は **場所（`registry_dir/artifacts/`）と git 永続対象であること**だけを標準化し、ファイル構成・命名・索引（INDEX 等）は秘書に委ねる——実例として、ある成果物が「章別 md ＋ INDEX」→「単一 JSON マスター」と形を変えうるように、**スキーマレスこそが要件**であることを示す。§3.5「情報の持ち方は情報の主体が決める」・§2 三世界分類の踏襲
+- **なぜ永続か**: 成果物は蓄積が本質（過去の成果物は資産）。§3.6 の git 永続（orphan ブランチ `claude/shiori-registry`）に、4管理表・`wal/` と並べて `artifacts/` を載せる。揮発してよい `state_dir` とは永続要件が正反対
+- **なぜ backup はツリー同期か（ファイル固定でない）**: 管理表5点（4表＋WAL）が「単一ファイルの状態 SSoT」ゆえ固定列挙でコピーするのに対し、`artifacts/` はファイルが増減する成果物層ゆえ **ディレクトリ単位のツリー同期**（`/shiori-registry-backup` が `ls-tree -r` で全ファイル列挙・`rm -rf` で stale 削除も反映）。配布先に `artifacts/` が無ければ空ループ＝no-op（母集団スコープ安全）
 - **配布可能性（母集団スコープ）**: 配布 template には成果物実体を焼かない（§3.3）。`artifacts/` は実運用で自然に育つ Private 層であり、public（配布物）には「**層が在る**」ことだけを記述する——個人利用の初日から成果物が registry_dir 配下に蓄積される構造を標準化しておく
 
 > 設計の背骨は §2「決定論コア + エージェント判断の分離」の踏襲: 4表は決定論（コードがスキーマ・CRUD を持つ）、artifacts は重要度の世界（置き場と永続だけ与え、中身は判断主体に委ねる）。この層の境界が「構造化管理表」と「成果物」を取り違えないための背骨。

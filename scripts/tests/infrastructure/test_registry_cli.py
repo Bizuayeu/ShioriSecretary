@@ -89,7 +89,7 @@ def test_add_persists_to_registry_dir_when_set(tmp_path):
     assert not (state / "individuals").exists()
 
 
-# === R2-3: イベント駆動 sync（DI） ===
+# === イベント駆動 sync（DI） ===
 
 
 def test_add_triggers_sync_when_provided(tmp_path):
@@ -131,7 +131,7 @@ def test_no_sync_when_not_provided(tmp_path):
     ) == 0
 
 
-# === R2-3c: 起動時 fetch（registry-sync） ===
+# === 起動時 fetch（registry-sync） ===
 
 
 def test_registry_fetch_calls_fetch_checkout_when_enabled(tmp_path):
@@ -142,11 +142,11 @@ def test_registry_fetch_calls_fetch_checkout_when_enabled(tmp_path):
         state_dir=tmp_path,
         session_duration_sec=7200,
         registry_sync_enabled=True,
-        registry_branch="claude/ts-registry",
+        registry_branch="claude/shiori-registry",
     )
     git = FakeGitSync()
     assert run_registry_fetch(config, git=git) == 0
-    assert git.fetch_calls == ["claude/ts-registry"]
+    assert git.fetch_calls == ["claude/shiori-registry"]
 
 
 def test_registry_fetch_noop_when_disabled(tmp_path):
@@ -175,7 +175,7 @@ def test_registry_fetch_continues_when_registry_root_absent(tmp_path, capsys):
         session_duration_sec=7200,
         registry_sync_enabled=True,
         registry_dir=missing,
-        registry_branch="claude/ts-registry",
+        registry_branch="claude/shiori-registry",
     )
     adapter = GitCliAdapter(config.registry_root, branch=config.registry_branch)
 
@@ -198,7 +198,7 @@ def test_registry_fetch_emits_empty_load_warning_on_failure(tmp_path, capsys):
         state_dir=tmp_path,
         session_duration_sec=7200,
         registry_sync_enabled=True,
-        registry_branch="claude/ts-registry",
+        registry_branch="claude/shiori-registry",
     )
     git = FakeGitSync(fetch_outcomes=[GitSyncError("simulated fetch failure")])
     assert run_registry_fetch(config, git=git) == 1
@@ -214,7 +214,7 @@ def test_registry_fetch_silent_on_success_and_noop(tmp_path, capsys):
         state_dir=tmp_path,
         session_duration_sec=7200,
         registry_sync_enabled=True,
-        registry_branch="claude/ts-registry",
+        registry_branch="claude/shiori-registry",
     )
     assert run_registry_fetch(enabled, git=FakeGitSync()) == 0  # fetch 成功
     assert "empty" not in capsys.readouterr().err.lower()

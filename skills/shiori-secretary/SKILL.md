@@ -19,12 +19,12 @@ description: Claude のモデル（Opus/Fable/Mythos）に秘書を授ける"魔
 ## Daily Workflow（cloud routine 起動時）
 
 ```
-1. Step 0 で `config.json` を読み `agent_name`/`private_dir` を把握 → `source bootstrap.sh` で依存導入 + validate-config（config.json の session_duration_sec 検証含む）+ `TELEGRAM_SECRETARY_SESSION_ID` を env 共有
+1. Step 0 で `config.json` を読み `agent_name`/`private_dir` を把握 → `source bootstrap.sh` で依存導入 + validate-config（config.json の session_duration_sec 検証含む）+ `SHIORI_SESSION_ID` を env 共有
 2. egress 疎通確認（curl api.telegram.org/.../getMe を invalid token で叩いて 401/404 が返ることを確認）
 3. lease acquire（他セッション保持中なら exit 4 で即終了＝自己治癒）
-4. `/goal` で deadline（`$TS_SESSION_DEADLINE_EPOCH`）まで監視を駆動。各ターン = foreground
+4. `/goal` で deadline（`$SHIORI_SESSION_DEADLINE_EPOCH`）まで監視を駆動。各ターン = foreground
    `watch --exit-on-message --max-duration <残り窓> --timeout 30`（この call のみ bash
-   `timeout: $TS_POLL_BASH_TIMEOUT_MS`、他は既定 2分）
+   `timeout: $SHIORI_POLL_BASH_TIMEOUT_MS`、他は既定 2分）
 5. watch 返却後、stdout の JSON Lines を読み、エージェントが SecretaryRole で応答ドラフト → send-reply
    （メッセージ受信なら即応再起動、無ければ窓満了で再起動）
 6. lease renew は watch がサイクル毎に内蔵実行（手動 renew 不要）
@@ -107,17 +107,17 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 | Var | Required | 概要 |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | ✅ | BotFather から取得した bot token |
-| `TELEGRAM_SECRETARY_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
-| `TELEGRAM_SECRETARY_STATE_DIR` | optional | offset/lease/media の保存先、既定 `./state`（media は `state_dir/media/`） |
-| `TELEGRAM_SECRETARY_SESSION_ID` | optional | リース owner ID、省略時は uuid 自動生成。`source bootstrap.sh` で自動 export され、`lease`/`watch`/`send-reply` 全コマンドが同じ owner を共有 |
-| `TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES` | optional | media download のサイズ上限（既定 20MB）。超過は `skip_reason="media_size_exceeded"` で emit、download skip |
-| `TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS` | optional | 保存 media の保持期限（既定 24h）。`cleanup_media_dir` が超過ファイル削除 |
-| `TELEGRAM_SECRETARY_MEDIA_ENABLE_DOWNLOAD` | optional | Heavy（true=既定）/ Medium（false）モード切替 |
-| `TELEGRAM_SECRETARY_BUNDLE_VOICE` | optional | 音声/動画 STT（moonshine+av）を bootstrap で導入するか（既定 true）。`false` で除外＝音声は `skipped` にフォールバック（moonshine Community License 回避・軽量化、大規模向け） |
-| `TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES` | optional | **送信**添付の上限（既定 50MB、Telegram bot API 上限）。超過は送信前に `AttachmentTooLarge` で弾く（exit 2） |
-| `TELEGRAM_SECRETARY_PDF_IMAGE_MAX_PAGES` | optional | PDF 受信時に `render()` が事前画像化する先頭ページ数の上限（既定 20）。超多ページの disk/トークン安全弁。21 枚目以降は `render-pdf --pages` でオンデマンド生成、`page_count` は実総数 |
+| `SHIORI_AUTHORIZED_CHATS` | ✅ | JSON array of int (chat_id allowlist) |
+| `SHIORI_STATE_DIR` | optional | offset/lease/media の保存先、既定 `./state`（media は `state_dir/media/`） |
+| `SHIORI_SESSION_ID` | optional | リース owner ID、省略時は uuid 自動生成。`source bootstrap.sh` で自動 export され、`lease`/`watch`/`send-reply` 全コマンドが同じ owner を共有 |
+| `SHIORI_MEDIA_MAX_SIZE_BYTES` | optional | media download のサイズ上限（既定 20MB）。超過は `skip_reason="media_size_exceeded"` で emit、download skip |
+| `SHIORI_MEDIA_RETENTION_HOURS` | optional | 保存 media の保持期限（既定 24h）。`cleanup_media_dir` が超過ファイル削除 |
+| `SHIORI_MEDIA_ENABLE_DOWNLOAD` | optional | Heavy（true=既定）/ Medium（false）モード切替 |
+| `SHIORI_BUNDLE_VOICE` | optional | 音声/動画 STT（moonshine+av）を bootstrap で導入するか（既定 true）。`false` で除外＝音声は `skipped` にフォールバック（moonshine Community License 回避・軽量化、大規模向け） |
+| `SHIORI_OUTBOUND_MAX_SIZE_BYTES` | optional | **送信**添付の上限（既定 50MB、Telegram bot API 上限）。超過は送信前に `AttachmentTooLarge` で弾く（exit 2） |
+| `SHIORI_PDF_IMAGE_MAX_PAGES` | optional | PDF 受信時に `render()` が事前画像化する先頭ページ数の上限（既定 20）。超多ページの disk/トークン安全弁。21 枚目以降は `render-pdf --pages` でオンデマンド生成、`page_count` は実総数 |
 
-> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須・fail-fast）。勤務帯（例 9-17 時）は cloud routine の cron（`0 9-16 * * 1-5`）+ duration で表現（コードに時計を持たせない）。`/goal` deadline 駆動の運用変数（`TS_SESSION_DEADLINE_EPOCH` / `TS_POLL_SET_SEC` / `TS_POLL_BASH_TIMEOUT_MS` / `TS_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export（SSoT。`TS_SESSION_DURATION_SEC` は廃止＝duration 設定値を env に出さない純2層）。`BASH_MAX_TIMEOUT_MS=600000` は `{private_dir}/.claude/settings.json`。詳細は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)。
+> **継続時間は config.json の `session_duration_sec`**（範囲 1〜86400 秒、必須・fail-fast）。勤務帯（例 9-17 時）は cloud routine の cron（`0 9-16 * * 1-5`）+ duration で表現（コードに時計を持たせない）。`/goal` deadline 駆動の運用変数（`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`）は `bootstrap.sh` が config.json から算出して export（SSoT。`SHIORI_SESSION_DURATION_SEC` は廃止＝duration 設定値を env に出さない純2層）。`BASH_MAX_TIMEOUT_MS=600000` は `{private_dir}/.claude/settings.json`。詳細は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)。
 
 ## Security
 
@@ -127,8 +127,8 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 - **出力漏洩スキャン** — 返信に token / env名 / system prompt / 絶対パス混入がないか送信前に エージェント側で確認
 - **secrets は env のみ** — bot token をコードやコミットに置かない、ログにも残さない
 - **リースロック** — heartbeat + TTL で並走セッションの重複応答を構造的に防止
-- **media size 上限**（DoS 防御）— `TELEGRAM_SECRETARY_MEDIA_MAX_SIZE_BYTES`（既定 20MB）超過は download せず skip + flag
-- **media retention**（機密書類の長期残存防止）— `TELEGRAM_SECRETARY_MEDIA_RETENTION_HOURS`（既定 24h）経過した media は `cleanup_media_dir` で削除
+- **media size 上限**（DoS 防御）— `SHIORI_MEDIA_MAX_SIZE_BYTES`（既定 20MB）超過は download せず skip + flag
+- **media retention**（機密書類の長期残存防止）— `SHIORI_MEDIA_RETENTION_HOURS`（既定 24h）経過した media は `cleanup_media_dir` で削除
 - **token 込み URL のログ秘匿** — `/file/bot<TOKEN>/<file_path>` の TOKEN を例外メッセージ・stderr・ログに残さない（`raise ... from None` で chain 切り、`safe_id=file_id[:8]` のみ表示、テストで明示検証）
 - **mime_type は Telegram の自己申告** — 信頼せず、親プロセスのエージェントが `Read` で開いた結果を真とする（rename 攻撃対策）
 - **render 失敗時の絶対パス秘匿** — Adapter 内部 catch 時の stderr warning は `file_id[:8]` のみで `local_path` の絶対パスを出さない（テストで明示検証）
@@ -139,5 +139,5 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 - **transcript の出力漏洩スキャン** — 音声内の機密（パスワード読み上げ等）が transcript 経由で emit に乗る可能性、send-reply 前の漏洩スキャン対象に `rendered_text`(transcript) も含める
 - **音声中間ファイルの不在** — PyAV はメモリ内（numpy）で 16kHz mono float へデコードし、**ffmpeg 中間 wav をディスクに書かない**。機密 voice の中間生成物がディスクに残存しない
 - **outbound 添付の漏洩スキャン** — エージェント生成物（md/docx/画像/PDF）に token/env名/system prompt/機密が混入していないか**送信前**にエージェント側で確認。コードはバイナリ中身まで検査しない＝エージェントの判断責務
-- **outbound サイズ上限**（事故防止）— `TELEGRAM_SECRETARY_OUTBOUND_MAX_SIZE_BYTES`（既定 50MB）超過は送信前に `AttachmentTooLarge` で弾く
+- **outbound サイズ上限**（事故防止）— `SHIORI_OUTBOUND_MAX_SIZE_BYTES`（既定 50MB）超過は送信前に `AttachmentTooLarge` で弾く
 - **送信時 token 込み URL のログ秘匿** — sendPhoto/sendDocument 失敗例外は method/chat_id/file 名のみで URL/token を載せない（受信側 media_downloader と同型、テストで検証）
