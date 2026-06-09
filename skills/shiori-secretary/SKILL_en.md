@@ -22,6 +22,7 @@ description: A "magic bookmark" that grants a secretary to any Claude model (Opu
 1. In Step 0, read `config.json` to learn `agent_name`/`private_dir` → `source bootstrap.sh` to install dependencies + validate-config (including validation of session_duration_sec in config.json) + share `SHIORI_SESSION_ID` via env
 2. Verify egress connectivity (hit curl api.telegram.org/.../getMe with an invalid token to confirm 401/404 is returned)
 3. lease acquire (if another session holds it, exit 4 immediately = self-healing)
+3.5. Startup orientation = bulk-load the 4 registry tables (individuals/tasks/knowledge/abilities) into context via list, then judge actionability for free time (autonomous turn) — under a grant, proactively push one item such as a continuing task; if nothing qualifies, focus on inbound. Details in ROUTINE_PROMPT Step 4.5
 4. Drive monitoring with `/goal` until the deadline (`$SHIORI_SESSION_DEADLINE_EPOCH`). Each turn = foreground
    `watch --exit-on-message --max-duration <remaining window> --timeout 30` (only this call uses bash
    `timeout: $SHIORI_POLL_BASH_TIMEOUT_MS`, others default to 2 minutes)
