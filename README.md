@@ -8,7 +8,7 @@
 
 栞が「どこまで読んだか」を覚えておくように、関係者・依頼・対応知・能力を記憶（registry）として蓄積し、あなたの文脈を見失いません。その実体は、Telegram を窓口とした 24-7 の対話チャネルです。
 
-> 📦 **設定の置き場** — 環境固有の値は `<INSTALL_DIR>/config.json`（`agent_name` / `private_dir` / `session_duration_sec` / `registry_*`、雛型 `templates/config.template.json`、`init-config` で生成）に集約します。秘匿（bot token / authorized chats）は env で注入。**運用値の手置換は不要**——人格名・private_dir は config.json、`<INSTALL_DIR>` / `<REPO_ROOT>` は bootstrap が env 解決します（`<INSTALL_DIR>`=インストール先 / `<OWNER>`=運用主体 はドキュメント上の読み替え表記）。詳細は [STRUCTURE.md](./docs/STRUCTURE.md)。
+> 📦 **設定の置き場** — 環境固有の値は `<INSTALL_DIR>/config.json`（`agent_name` / `private_dir` / `session_duration_sec` / `registry_*`、雛型 `templates/config.template.json`、`init-config` で生成）に集約します。秘匿（bot token / authorized chats）は env で注入。**運用値の手置換は不要**——人格名・private_dir は config.json、`<INSTALL_DIR>` は bootstrap が env 解決します（`<INSTALL_DIR>`=インストール先 / `<OWNER>`=運用主体 はドキュメント上の読み替え表記）。詳細は [STRUCTURE.md](./docs/STRUCTURE.md)。
 
 Telegram Bot API の long-polling を **Claude Code Routines**（Anthropic のクラウド実行スケジュールエージェント基盤。Remote 実行＝cloud routine）上で常駐させ、認可済みチャットからのメッセージに秘書エージェント（`SecretaryRole` を被った本体エージェント。人格名は config.json の `agent_name`）が即応する対話チャネル。
 

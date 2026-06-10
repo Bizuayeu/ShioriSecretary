@@ -99,7 +99,7 @@ For detailed schemas and directory layout, see [STRUCTURE.md](./STRUCTURE_en.md)
 
 **registry_dir must be an independent git working tree (worktree)** (3-layer worktree provisioning, the permanent fix for the 2026-06-05 incident, this section being the SSoT):
 
-Placing `registry_dir` in a **subdirectory** of the Private dev repo (e.g. `<PRIVATE_REPO>/ShioriSecretary/registry`) produces two defects at once——the startup-fetch `checkout -B` **switches the branch of the entire parent repo and destroys the dev tree** (defect 2), and in the cloud routine's fresh clone the registry_dir is absent, so a git invoked with `cwd=registry_dir` throws `OSError` (defect 1). The result was an incident where it **ran "without memory" while all 4 registry tables were empty** (T0002 misanswer, grant not loaded). Make registry_dir an **independent second worktree** and fix this fundamentally with 3 layers:
+Placing `registry_dir` in a **subdirectory** of the Private dev repo (e.g. `<PRIVATE_REPO>/ShioriSecretary/registry`) produces two defects at once——the startup-fetch `checkout -B` **switches the branch of the entire parent repo and destroys the dev tree** (defect 2), and in the cloud routine's fresh clone the registry_dir is absent, so a git invoked with `cwd=registry_dir` throws `OSError` (defect 1). The result was an incident where it **ran "without memory" while all 4 registry tables were empty** (in real operation this caused misanswers and an unloaded authority grant). Make registry_dir an **independent second worktree** and fix this fundamentally with 3 layers:
 
 - **Layer 1 (root fix)** `bootstrap.sh`: idempotently provision `registry_dir` as a second worktree of the Private repo (`git worktree add -B <branch> <registry_dir> origin/<branch>`; refresh with `checkout -B origin/<branch>` if it already exists). Always force `origin/<branch>` — the SSoT is origin; it never grabs a stale local branch. On failure it does not `_shiori_die` but continues, with layer 3 warning (graceful)
 - **Layer 2 (defense)** `GitCliAdapter.fetch_checkout`: **before** `checkout -B`, verify `rev-parse --show-toplevel == registry_dir`; on mismatch stop with `RegistryWorktreeError` (a `GitSyncError` subclass) = structurally forbidding accidental detonation of the parent repo
@@ -151,7 +151,7 @@ The 4 registry tables (individuals/tasks/knowledge/abilities, §3.1–3.8) are t
 
 - **Why it is not given CRUD/WAL/schema (the essence)**: for a deliverable, "how to structure it" is itself the secretary's judgment (the importance world). Giving it a fixed schema or CRUD subcommand would inject the non-templated nature of deliverables into the determinism of the 4 tables. `artifacts/` standardizes only **its location (`registry_dir/artifacts/`) and that it is a git-persistence target**, and leaves the file composition, naming, and indexing (INDEX, etc.) to the secretary——as a concrete example, a deliverable may change shape from "per-chapter md + INDEX" to "a single JSON master," showing that **being schemaless is itself the requirement**. This follows §3.5 "the information's owner decides how it is held" and §2's three-worlds model
 - **Why persistent**: deliverables are accumulative in essence (past deliverables are assets). On the git persistence of §3.6 (the orphan branch `claude/shiori-registry`), `artifacts/` rides alongside the 4 registry tables and `wal/`. Its persistence requirement is the opposite of the `state_dir`, which may be volatile
-- **Why backup is tree-sync (not a fixed file list)**: whereas the 5 registry items (4 tables + WAL) are copied by a fixed enumeration because they are "single-file state SSoTs," `artifacts/` is a deliverables layer whose files increase and decrease, so it uses **directory-level tree sync** (`/shiori-registry-backup` enumerates all files with `ls-tree -r` and also reflects stale deletion with `rm -rf`). If the distribution target has no `artifacts/`, it is an empty loop = no-op (audience-scope safe)
+- **Why backup is tree-sync (not a fixed file list)**: whereas the 5 registry items (4 tables + WAL) are copied by a fixed enumeration because they are "single-file state SSoTs," `artifacts/` is a deliverables layer whose files increase and decrease, so backup is done with **directory-level tree sync** (enumerating all files and also reflecting stale deletions; the means is left to the user). If the distribution target has no `artifacts/`, it is an empty loop = no-op (audience-scope safe)
 - **Distributability (audience scope)**: the distribution template does not bake in deliverable entities (§3.3). `artifacts/` is a Private layer that grows naturally in real operation, and the public (distributable) describes only that "**the layer exists**"——standardizing, from day one of personal use, the structure where deliverables accumulate under registry_dir
 
 > The backbone of the design follows §2 "separation of deterministic core and agent judgment": the 4 tables are deterministic (the code holds schema and CRUD), and artifacts is the importance world (giving only a place and persistence, leaving the contents to the judging entity). This layer's boundary is the backbone for not confusing a "structured registry table" with a "deliverable."
@@ -164,12 +164,12 @@ A record of feature adoption decisions compared against Claude's official Telegr
 
 Legend — Implementation: ✅ done / ❌ not / ❌(static) static alternative ｜ Need: ◎ essential / ○ useful / △ low priority / ✕ unnecessary
 
-| Feature | Official tool | Use | TS impl. | Need | Adoption rationale |
+| Feature | Official tool | Use | This skill's impl. | Need | Adoption rationale |
 |---|---|---|---|---|---|
 | Image/file sending | `reply(files)` | Send back deliverables (figures/reports/docx) | ✅ | ◎ | The core of the write side. Auto-routes to sendPhoto / sendDocument by extension; `--file` may be repeated |
 | typing indicator | `sendChatAction` | Ease the UX of the few-second lag before a response | ✅ | ○ | Stateless and lightweight; fires `send_chat_action` best-effort before sending |
 | reply threading | `reply_to` | Make explicit which utterance is being replied to | ✅ | ○ | `reply_to_message_id` already exists in Domain; completed by wiring `--reply-to` (almost no cost) |
-| **Understanding inbound media content** | (not in official) | voice/audio/video → transcript, docx/pptx/xlsx → markdown | ✅ | ◎ | **A strength where TS surpasses the official.** The official stops at file_id forward + download and does not read the content |
+| **Understanding inbound media content** | (not in official) | voice/audio/video → transcript, docx/pptx/xlsx → markdown | ✅ | ◎ | **A strength where this skill surpasses the official.** The official stops at file_id forward + download and does not read the content |
 | Emoji reactions | `react` | A light ack (a read stamp) | ❌ | ✕ | Substitutable by UTF-8 emoji in the reply body. Furthermore, **in a 1:1 DM the bot cannot become an administrator, so inbound reactions are also structurally unreceivable** |
 | Editing sent messages | `edit_message` | Progress updates for long-running tasks | ❌ | ○ | It has utility, but it brings `message_id` state management into the stateless design, so it is shelved. Add independently if needed |
 | markdownv2 formatting | `format` | Headings / emphasis | ❌ | △ | MarkdownV2 requires escaping all of `_*[]()~>#+-=\|{}.!`, risking send failure. Easy to retrofit, so held under YAGNI |
@@ -181,9 +181,9 @@ Legend — Implementation: ✅ done / ❌ not / ❌(static) static alternative �
 
 ### Structural summary
 
-The features that are "in the official but not in TS" lean toward **send-side UX decoration**, while the features that are "in TS but not in the official" concentrate on **understanding inbound content** (turning voice/docx into transcript/md). This asymmetry surfaces as the flip side of the design philosophy that "the secretary's value is on the read side."
+The features that are "in the official but not in this skill" lean toward **send-side UX decoration**, while the features that are "in this skill but not in the official" concentrate on **understanding inbound content** (turning voice/docx into transcript/md). This asymmetry surfaces as the flip side of the design philosophy that "the secretary's value is on the read side."
 
-To organize it——**pairing is "who to let in," commands are "presenting what can be done," and group is "where to ask."** Because TS narrows to the operation of "`<OWNER>` and a few related parties, in 1:1, calling in natural language," these three are deemed unnecessary at present.
+To organize it——**pairing is "who to let in," commands are "presenting what can be done," and group is "where to ask."** Because this skill narrows to the operation of "`<OWNER>` and a few related parties, in 1:1, calling in natural language," these three are deemed unnecessary at present.
 
 ### Future decision guidance
 

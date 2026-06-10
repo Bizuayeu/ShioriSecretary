@@ -15,6 +15,7 @@
 | `<ORGANIZATION>` | 組織名 | 所属企業・チーム |
 | `<REPO_ROOT>` | リポジトリルート | クローン先のルート |
 | `<BASE_REPO>` | 基本設定リポ名（cloud routine が cwd 親に並列 clone する基本設定リポ。`schedule` が `sources` から実値置換） | `my-config-repo` |
+| `<PRIVATE_REPO>` | 非公開データを置くリポ名（cloud routine が cwd 親に並列 clone する Private リポ。配置先を指す `<PRIVATE_DIR>` とは区別） | `my-private-repo` |
 | `<PRIVATE_DIR>` | 非公開データ・人格定義の配置先（cloud routine では cwd 親起点の相対） | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | インストール先パス | ShioriSecretary 配置先 |
 | `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `SHIORI_STATE_DIR` |

@@ -76,7 +76,7 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 | `render-pdf --path <pdf> (--text \| --pages N-M)` | 受信済み PDF のオンデマンド抽出。`--text`=全ページのテキスト層（pdfplumber、`--- page N ---` マーカー）、`--pages N-M`=指定ページ画像化（1-indexed inclusive、cap 超 21 枚目以降用）。結果は JSON 1 行で stdout。`--text`/`--pages` は排他必須 | 0=OK, 2=ファイル不在/引数不正 |
 | `individuals\|tasks\|knowledge\|abilities {list\|get\|add\|remove}` | 管理表（INDIVIDUALS/TASKS/KNOWLEDGE/ABILITIES）の CRUD。`get`/`remove` は `--key`（uuid/id）、`add` は `--json`/`--json-file`。値オブジェクトで検証。SSoT は Private JSON、操作主体は SecretaryRole、入口は `/shiori-secretary`。`registry_sync` 有効時は add/remove 後に commit&push（イベント駆動） | 0=OK, 2=不正入力 |
 | `registry-sync` | 起動時に固定ブランチから管理表を fetch（`registry_sync` 有効時のみ、無効は no-op）。最新の管理表で起動するため ROUTINE_PROMPT が起動時に1回呼ぶ | 0=OK, 1=fetch失敗 |
-| `wal-append --kind <individuals\|tasks\|knowledge\|abilities> (--json \| --json-file)` | WAL に intent を pending 追記（**登録系の返信の前**、言行一致保証の先行書込）。`registry_sync` 有効時のみ・無効は no-op | 0=OK, 2=不正 |
+| `wal-append --kind <individuals\|tasks\|knowledge\|abilities\|outbound> (--json \| --json-file)` | WAL に intent を pending 追記（**登録系の返信の前**、言行一致保証の先行書込）。`outbound` は通常 `proactive-send` が内包するため手動使用は非推奨。`registry_sync` 有効時のみ・無効は no-op | 0=OK, 2=不正 |
 | `wal-push [--message]` | WAL ログを commit & push（**must-succeed**＝失敗は exit 1＝**送信前ゲートで send-reply を中止**）。`registry_sync` 無効は no-op | 0=OK, 1=push失敗 |
 | `wal-redo` | 起動時に WAL の pending を redo（`registry_sync` 有効時）。registry kind は upsert（key 冪等・**inbound 返信は再送しない**）、outbound kind は happy-path settle 後に残った中断分のみ1回再送→即 done。ROUTINE_PROMPT が registry-sync 直後に1回呼ぶ | 0=OK |
 

@@ -294,7 +294,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 ## cloud routine lifecycle management (schedule / unschedule)
 
-> **This section is not part of the "prompt body that gets registered".** It is a **meta-operation procedure** by which the agent that invoked `/shiori-secretary` registers / updates / stops this resident routine itself on a cloud routine. Operate it with the `RemoteTrigger` tool (not the Python CLI — because RemoteTrigger is a tool, it cannot be placed in `scripts/main.py`). The **canonical source** for RemoteTrigger's body shape (the events v1 nesting, the `uuid`-required form, etc.) is the built-in `schedule` skill. Here only **the TS-specific registration content** is noted; the generic schema is not transcribed (refer to the `schedule` skill / `MEMORY: reference_remote_trigger_update` = SSoT).
+> **This section is not part of the "prompt body that gets registered".** It is a **meta-operation procedure** by which the agent that invoked `/shiori-secretary` registers / updates / stops this resident routine itself on a cloud routine. Operate it with the `RemoteTrigger` tool (not the Python CLI — because RemoteTrigger is a tool, it cannot be placed in `scripts/main.py`). The **canonical source** for RemoteTrigger's body shape (the events v1 nesting, the `uuid`-required form, etc.) is the built-in `schedule` skill. Here only **the registration content specific to this skill** is noted; the generic schema is not transcribed (refer to the built-in `schedule` skill = SSoT).
 
 ### Routine settings (distribution placeholders; note the real values after registration)
 
@@ -332,18 +332,18 @@ python scripts/main.py init-config --session-duration-sec <seconds> --agent-name
    - **Absent → create**: `RemoteTrigger action=create body={the skeleton below}`
    - **Existing → get→modify→update**: `RemoteTrigger action=get trigger_id=<id>` to obtain the entire `job_config` → replace **only** the parts you want to change (cron / prompt body / model / `enabled`) → `RemoteTrigger action=update trigger_id=<id> body={the entire obtained job_config + changes}`.
 
-4. **body skeleton (the TS-specific registration content. The generic schema is the canonical `schedule` skill)**:
+4. **body skeleton (the registration content specific to this skill. The generic schema is the canonical `schedule` skill)**:
    - `name`: `shiori-secretary`
    - `cron_expression`: working hours (paired with `session_duration_sec` to express "9–17 o'clock" etc. The visible side of the design that gives no clock to the code)
    - `enabled`: `true` (enable. Resuming from a stop is the same = override `enabled` to `true`)
    - `job_config.ccr.environment_id`: the id noted above
    - `job_config.ccr.events[0].data.message.content`: **the body of this ROUTINE_PROMPT.md from "## To You" through "## Failure modes"** (do not include this lifecycle-management section). Before sending, **substitute** in the body **`<INSTALL_DIR>` to the skill's real placement path** (the relative path to this skill from cwd = the parent of the 2 repos. e.g., `my-config-repo/ShioriSecretary`), **`<BASE_REPO>` to the base-config repo name in `sources`** (e.g., `my-config-repo`), and **`<PRIVATE_DIR>` to config's `private_dir`** (e.g., `my-private-repo/ShioriSecretary`) (to make the pre-bootstrap Read/source lines resolvable with cwd = the parent of the 2 repos. After bootstrap it is env-resolved, hence not a substitution target)
    - `job_config.ccr.session_context.sources`: the git URLs of the base repo + the Private repo
-   - `job_config.ccr.session_context.outcomes`: **the push of the registry needs no explicit naming declaration of `registry_branch`** (after the 2026-06-05 worktree migration). Because the registry is pushed directly to the fixed branch `claude/shiori-registry` by `registry_cli` from `registry_dir` (an independent worktree) (`bootstrap.sh` layer-1 provisioning + `GitCliAdapter.push`, **DESIGN §3.6 is the SSoT**), it does not depend on the harness's `outcomes` wiring (the session-end work-branch push). outcomes may remain the auto-numbered branch. For the body schema form, refer canonically to the `schedule` skill / `MEMORY: reference_remote_trigger_update`
+   - `job_config.ccr.session_context.outcomes`: **the push of the registry needs no explicit naming declaration of `registry_branch`** (after the 2026-06-05 worktree migration). Because the registry is pushed directly to the fixed branch `claude/shiori-registry` by `registry_cli` from `registry_dir` (an independent worktree) (`bootstrap.sh` layer-1 provisioning + `GitCliAdapter.push`, **DESIGN §3.6 is the SSoT**), it does not depend on the harness's `outcomes` wiring (the session-end work-branch push). outcomes may remain the auto-numbered branch. For the body schema form, refer canonically to the built-in `schedule` skill
    - `job_config.ccr.session_context.allowed_tools`: `["Bash","Read","Write","Edit","Glob","Grep","WebFetch","WebSearch"]` (allows `WebFetch`/`WebSearch` for the secretary's research while handling requests)
    - `job_config.ccr.session_context.model`: the Model in the table above
 
-5. **Two pitfalls** (for details, refer canonically to the `schedule` skill / `MEMORY: reference_remote_trigger_update`):
+5. **Two pitfalls** (for details, refer canonically to the built-in `schedule` skill):
    - **Pitfall ①, events are v1 nested**: nest within `data` the `uuid` (a new lowercase v4 each time) / `session_id` / `type:"user"` / `parent_tool_use_id:null` / `message`. `get` returns a flattened v2, so do not pass that shape as-is to `update` (400 with `unknown field "type"` etc.).
    - **Pitfall ②, session_context is fully replaced**: `update` does not shallow-merge but replaces. Always obtain the whole with `get`, change only the needed parts, and return it (prevents the loss accidents of `sources` / `outcomes` / `allowed_tools` / `model`. There is real harm in 2 observed cases).
 

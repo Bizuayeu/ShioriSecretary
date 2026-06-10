@@ -2,10 +2,9 @@
 # 配布先への clean copy 時、ここで指定したものは配布物に含めない。
 # テストは信頼性証拠として公開する方針（除外しない）。
 
-# 配布除外（開発専用の記録・凍結中の拡張）
+# 配布除外（開発専用の記録）
 # ※ 開発リポジトリで既追跡の場合は追跡を維持。本ルールは配布コピー先で効く。
 docs/devlog/
-LineBridge/
 
 # Runtime state（offset.json / lease.json / media 等の実行時データ）
 # skill root の state/ のみ除外。adapters/state/ パッケージは除外しない（先頭スラッシュで限定）。
@@ -36,8 +35,3 @@ _pytest_out.txt
 venv/
 .vscode/
 .idea/
-
-# 親（ルート）.gitignore の `Identities/`（EpisodicRAG ユーザーデータ除外）が
-# 配布対象の雛型 templates/Identities/ まで巻き込むのを打ち消す。
-# SecretaryRole.template.md は配布雛型であり、ユーザーデータ Identities/ とは別物。
-!templates/Identities/

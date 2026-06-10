@@ -15,6 +15,7 @@ The angle-bracket tokens used in the distributed documentation and templates are
 | `<ORGANIZATION>` | Organization name | Your company / team |
 | `<REPO_ROOT>` | Repository root | The root of your clone |
 | `<BASE_REPO>` | Base config repo name (the base config repo that the cloud routine clones in parallel into the cwd parent. `schedule` substitutes the actual value from `sources`) | `my-config-repo` |
+| `<PRIVATE_REPO>` | Name of the repo holding non-public data (the Private repo that the cloud routine clones in parallel into the cwd parent; distinct from `<PRIVATE_DIR>`, which is the placement location) | `my-private-repo` |
 | `<PRIVATE_DIR>` | Location of non-public data and persona definitions (in a cloud routine, relative to the cwd parent) | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | Install path | Where ShioriSecretary is placed |
 | `<state_dir>` | Storage for volatile state (offset/lease/media) | env `SHIORI_STATE_DIR` |

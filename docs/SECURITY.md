@@ -93,8 +93,8 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 - [ ] token redact テストが green か（network error 経路含む）
 - [ ] injection_flags / 出力漏洩スキャンの運用が ROUTINE_PROMPT に明記されているか
 - [ ] 配布ドキュメントに固有名（人格名・運用主体名・組織名・ローカル絶対パス）が残っていないか（grep 検査）
-- [ ] プレースホルダ（`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`）が規約どおり使われているか（[STRUCTURE.md](./STRUCTURE.md)）
+- [ ] プレースホルダ（`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`）が規約どおり使われているか（[STRUCTURE.md](./STRUCTURE.md)）
 
 ## ルート `SECURITY.md` との関係
 
-上位の `<REPO_ROOT>/SECURITY.md`（エージェント本体の汎用応答指針：拒否スタイル・内部情報秘匿・プロンプトインジェクション一般）は ROUTINE_PROMPT Step 0 がロードする。本ファイルは **ShioriSecretary というスキルのセキュリティ機構**を網羅する。両者は層が異なり、配布物としては本ファイルが単体完結する。
+上位の `<BASE_REPO>/SECURITY.md`（エージェント本体の汎用応答指針：拒否スタイル・内部情報秘匿・プロンプトインジェクション一般）は ROUTINE_PROMPT Step 0 がロードする。本ファイルは **ShioriSecretary というスキルのセキュリティ機構**を網羅する。両者は層が異なり、配布物としては本ファイルが単体完結する。

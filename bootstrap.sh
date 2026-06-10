@@ -30,33 +30,55 @@ _shiori_die() {
 
 _shiori_log() { echo "[shiori-secretary-bootstrap] $*"; }
 
+# 物理パス化（symlink/junction 成分を解消）。存在しないパスも python の realpath が
+# 解決できる範囲で正規化する（cd && pwd -P は不在パスで使えない）。
+_shiori_phys_path() { python -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
+
+# registry worktree 再provision前のサニティチェック。
+# config の registry_dir 誤設定（既存の実データディレクトリ等）を黙って rm -rf しないため、
+# 「不在 / 空 / registry 既知エントリのみ」のときだけ破壊的再provisionを許す。
+# 既知エントリ = worktree の .git、registry 4 表 + wal の各ディレクトリ、空ブランチ用 .keep。
+# 未知エントリが 1 つでもあれば 1（呼び出し側が warn+skip、graceful 方針は worktree add 失敗時と同じ）。
+_shiori_reg_safe_to_wipe() {
+    [ ! -e "$1" ] && return 0   # 不在: rm -rf は no-op、worktree add が新規作成する
+    [ ! -d "$1" ] && return 1   # ディレクトリ以外（ファイル/リンク）: 触らない
+    local _entry _base
+    for _entry in "$1"/* "$1"/.*; do
+        _base="${_entry##*/}"
+        case "$_base" in .|..) continue ;; esac
+        [ -e "$_entry" ] || continue   # glob 不一致の literal はスキップ
+        case "$_base" in
+            .git|.keep|individuals|tasks|knowledge|abilities|wal) continue ;;
+            *) return 1 ;;
+        esac
+    done
+    return 0
+}
+
 # Resolve script dir robustly whether sourced or executed.
 _shiori_script_path="${BASH_SOURCE[0]:-$0}"
 _shiori_script_dir="$(cd "$(dirname "$_shiori_script_path")" && pwd)"
 
-# --- 依存導入（pyproject.toml dependencies が SSoT、Tier 別に cloud routine 起動コストを制御）---
-# base: httpx（必須）。Heavy モード時のみ markitdown(docx render) と voice(moonshine+av) を追加。
-# media を扱わない Medium 運用・keep-alive 検証は httpx だけで起動が軽い。
-python -m pip install --quiet "httpx>=0.27" || _shiori_die "httpx install failed"
+# --- 依存導入（pyproject.toml が SSoT、Tier 別に cloud routine 起動コストを制御）---
+# editable install（packages=[] なので依存導入専用）で pyproject の extras を引く。
+# ピンを bootstrap に再記述しない（二重管理だと片側だけ更新されるドリフトの温床）。
+# base: httpx のみ。Heavy モード時に media extras（markitdown/pdf 系）、さらに voice extras を追加。
+# media を扱わない Medium 運用・keep-alive 検証は base だけで起動が軽い。
+# voice(moonshine+av) は BUNDLE_VOICE=false で除外可（moonshine Community License は年商$1M未満のみ
+# 商用無料・~134MB model ゆえ大規模/ライセンス回避向け）。未導入時は watch が transcriber=None で
+# 起動し音声を skipped にフォールバック（render usecase は transcriber Optional）。
 if [ "${SHIORI_MEDIA_ENABLE_DOWNLOAD:-true}" != "false" ]; then
-    _shiori_log "Heavy mode: installing markitdown (docx/pptx/xlsx render)..."
-    python -m pip install --quiet "markitdown[docx,pptx,xlsx]>=0.1.6" || _shiori_die "markitdown install failed"
-    # PDF テキスト層抽出（pdfplumber、MIT、pure-python）。passthrough(Read tool 依存)からの移行。
-    # 画像 PDF を pypdfium2 で全ページ画像化し to_pil() で png 保存（Pillow）。pdfplumber が
-    # 両者を transitive に引くが、pdf_renderer が pypdfium2 を直接 import するため再現性重視で明示 install。
-    _shiori_log "installing pdfplumber + pypdfium2 + Pillow (PDF text-layer & image render)..."
-    python -m pip install --quiet "pdfplumber>=0.11" "pypdfium2>=4.18.0" "Pillow>=9.1" || _shiori_die "pdf deps install failed"
-    # voice(moonshine+av) は BUNDLE_VOICE=false で除外可（moonshine Community License は年商$1M未満のみ
-    # 商用無料・~134MB model ゆえ大規模/ライセンス回避向け）。未導入時は watch が transcriber=None で
-    # 起動し音声を skipped にフォールバック（render usecase は transcriber Optional）。
     if [ "${SHIORI_BUNDLE_VOICE:-true}" != "false" ]; then
-        _shiori_log "installing voice deps (moonshine + av; BUNDLE_VOICE!=false)..."
-        python -m pip install --quiet "moonshine-voice>=0.0.59" "av>=17.0" || _shiori_die "voice deps install failed"
+        _shiori_log "Heavy mode: installing media+voice extras from pyproject..."
+        python -m pip install --quiet -e "$_shiori_script_dir[media,voice]" || _shiori_die "media+voice deps install failed"
     else
+        _shiori_log "Heavy mode (BUNDLE_VOICE=false): installing media extras from pyproject..."
+        python -m pip install --quiet -e "$_shiori_script_dir[media]" || _shiori_die "media deps install failed"
         _shiori_log "voice deps skipped (BUNDLE_VOICE=false) -> 音声は skipped にフォールバック"
     fi
 else
-    _shiori_log "Medium mode (MEDIA_ENABLE_DOWNLOAD=false): media deps skipped, httpx only"
+    _shiori_log "Medium mode (MEDIA_ENABLE_DOWNLOAD=false): installing base deps only (httpx)..."
+    python -m pip install --quiet -e "$_shiori_script_dir" || _shiori_die "base deps install failed"
 fi
 python -c "import httpx" >/dev/null || _shiori_die "httpx import failed after install"
 
@@ -112,17 +134,23 @@ if [ -n "$_shiori_registry_raw" ]; then
         if [ -n "$_shiori_priv_repo" ] && { [ -d "$_shiori_priv_repo/.git" ] || [ -f "$_shiori_priv_repo/.git" ]; }; then
             git -C "$_shiori_priv_repo" fetch origin "$_shiori_reg_branch" 2>/dev/null \
                 || _shiori_log "warn: registry fetch failed (registry-sync will retry / surface empty-load)"
+            # toplevel 比較は物理パス同士で行う（symlink/junction 成分による
+            # 「正しい worktree なのに不一致→誤って破壊的再provision」を防ぐ）。
             _shiori_reg_top="$(git -C "$SHIORI_REGISTRY_DIR" rev-parse --show-toplevel 2>/dev/null || true)"
-            if [ "$_shiori_reg_top" = "$SHIORI_REGISTRY_DIR" ]; then
+            if [ -n "$_shiori_reg_top" ] \
+                && [ "$(_shiori_phys_path "$_shiori_reg_top")" = "$(_shiori_phys_path "$SHIORI_REGISTRY_DIR")" ]; then
                 git -C "$SHIORI_REGISTRY_DIR" checkout -B "$_shiori_reg_branch" "origin/$_shiori_reg_branch" 2>/dev/null \
                     && _shiori_log "registry worktree refreshed ($_shiori_reg_branch)" \
                     || _shiori_log "warn: registry worktree refresh failed"
-            else
+            elif _shiori_reg_safe_to_wipe "$SHIORI_REGISTRY_DIR"; then
                 git -C "$_shiori_priv_repo" worktree prune 2>/dev/null
                 rm -rf "$SHIORI_REGISTRY_DIR" 2>/dev/null
                 git -C "$_shiori_priv_repo" worktree add -B "$_shiori_reg_branch" "$SHIORI_REGISTRY_DIR" "origin/$_shiori_reg_branch" 2>/dev/null \
                     && _shiori_log "registry worktree provisioned ($_shiori_reg_branch -> $SHIORI_REGISTRY_DIR)" \
                     || _shiori_log "warn: registry worktree add failed (registry-sync will surface empty-load)"
+            else
+                # registry_dir 誤設定の疑い（未知の実データが居る）: 黙って消さない。
+                _shiori_log "warn: registry_dir has unexpected content; skipping destructive re-provision ($SHIORI_REGISTRY_DIR)"
             fi
         else
             _shiori_log "warn: Private repo root not found ($_shiori_priv_repo); registry provisioning skipped"

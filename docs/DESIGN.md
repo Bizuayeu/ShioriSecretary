@@ -99,7 +99,7 @@ Infrastructure → Interface(Adapter) → UseCase → Domain
 
 **registry_dir は独立 git 作業ツリー（worktree）であること**（worktree provisioning 3層・2026-06-05 インシデント恒久対策、本項が SSoT）:
 
-`registry_dir` を Private dev リポの**サブディレクトリ**（例 `<PRIVATE_REPO>/ShioriSecretary/registry`）に置くと2つの欠陥が同時に出る——起動時 fetch の `checkout -B` が**親リポ全体のブランチを切替えて dev ツリーを破壊**（欠陥2）、かつ cloud routine の fresh clone では registry_dir が不在で `cwd=registry_dir` の git が `OSError`（欠陥1）。結果、**4管理表が空のまま「記憶なし」稼働**する事故が起きた（T0002 誤答・grant 未ロード）。registry_dir を**独立した第二 worktree**にして3層で根治する：
+`registry_dir` を Private dev リポの**サブディレクトリ**（例 `<PRIVATE_REPO>/ShioriSecretary/registry`）に置くと2つの欠陥が同時に出る——起動時 fetch の `checkout -B` が**親リポ全体のブランチを切替えて dev ツリーを破壊**（欠陥2）、かつ cloud routine の fresh clone では registry_dir が不在で `cwd=registry_dir` の git が `OSError`（欠陥1）。結果、**4管理表が空のまま「記憶なし」稼働**する事故が起きた（実運用で誤答・権限 grant の未ロードが発生）。registry_dir を**独立した第二 worktree**にして3層で根治する：
 
 - **層1（根治）** `bootstrap.sh`: `registry_dir` を Private リポの第二 worktree として冪等 provisioning（`git worktree add -B <branch> <registry_dir> origin/<branch>`、既存なら `checkout -B origin/<branch>` でリフレッシュ）。常に `origin/<branch>` 強制＝SSoT は origin、古いローカルブランチを掴まない。失敗は `_shiori_die` せず継続し層3 が警告（graceful）
 - **層2（防御）** `GitCliAdapter.fetch_checkout`: `checkout -B` の**前に** `rev-parse --show-toplevel == registry_dir` を検証、不一致なら `RegistryWorktreeError`（`GitSyncError` サブクラス）で停止＝親リポ誤爆を構造的に禁止
@@ -151,7 +151,7 @@ individuals/tasks/knowledge が「事実データ」（誰と・何を頼まれ�
 
 - **なぜ CRUD/WAL/スキーマを持たせないか（本質）**: 成果物は「どう構造化するか」自体が秘書の判断（重要度の世界）。固定スキーマや CRUD subcommand を与えると、4表の決定論性に成果物の非定型性が混入する。`artifacts/` は **場所（`registry_dir/artifacts/`）と git 永続対象であること**だけを標準化し、ファイル構成・命名・索引（INDEX 等）は秘書に委ねる——実例として、ある成果物が「章別 md ＋ INDEX」→「単一 JSON マスター」と形を変えうるように、**スキーマレスこそが要件**であることを示す。§3.5「情報の持ち方は情報の主体が決める」・§2 三世界分類の踏襲
 - **なぜ永続か**: 成果物は蓄積が本質（過去の成果物は資産）。§3.6 の git 永続（orphan ブランチ `claude/shiori-registry`）に、4管理表・`wal/` と並べて `artifacts/` を載せる。揮発してよい `state_dir` とは永続要件が正反対
-- **なぜ backup はツリー同期か（ファイル固定でない）**: 管理表5点（4表＋WAL）が「単一ファイルの状態 SSoT」ゆえ固定列挙でコピーするのに対し、`artifacts/` はファイルが増減する成果物層ゆえ **ディレクトリ単位のツリー同期**（`/shiori-registry-backup` が `ls-tree -r` で全ファイル列挙・`rm -rf` で stale 削除も反映）。配布先に `artifacts/` が無ければ空ループ＝no-op（母集団スコープ安全）
+- **なぜ backup はツリー同期か（ファイル固定でない）**: 管理表5点（4表＋WAL）が「単一ファイルの状態 SSoT」ゆえ固定列挙でコピーするのに対し、`artifacts/` はファイルが増減する成果物層ゆえ、バックアップは **ディレクトリ単位のツリー同期**（全ファイル列挙＋stale 削除の反映）で行う（手段は利用者側に委ねる）。配布先に `artifacts/` が無ければ空ループ＝no-op（母集団スコープ安全）
 - **配布可能性（母集団スコープ）**: 配布 template には成果物実体を焼かない（§3.3）。`artifacts/` は実運用で自然に育つ Private 層であり、public（配布物）には「**層が在る**」ことだけを記述する——個人利用の初日から成果物が registry_dir 配下に蓄積される構造を標準化しておく
 
 > 設計の背骨は §2「決定論コア + エージェント判断の分離」の踏襲: 4表は決定論（コードがスキーマ・CRUD を持つ）、artifacts は重要度の世界（置き場と永続だけ与え、中身は判断主体に委ねる）。この層の境界が「構造化管理表」と「成果物」を取り違えないための背骨。
@@ -164,12 +164,12 @@ Claude 公式の Telegram plugin（`/channels`）と比較した機能採否の�
 
 凡例 — 実装: ✅ 済 / ❌ 未 / ❌(静的) 静的代替 ｜ 要否: ◎必須 ○有効 △低優先 ✕不要
 
-| 機能 | 公式 tool | 用途 | TS 実装 | 要否 | 採否理由 |
+| 機能 | 公式 tool | 用途 | 本スキル実装 | 要否 | 採否理由 |
 |---|---|---|---|---|---|
 | 画像/ファイル送信 | `reply(files)` | 生成物（図表/レポート/docx）を送り返す | ✅ | ◎ | write 系の中核。拡張子で sendPhoto / sendDocument に自動振り分け、`--file` 複数可 |
 | typing インジケータ | `sendChatAction` | 応答までの数秒ラグの UX 緩和 | ✅ | ○ | stateless 軽量、`send_chat_action` を best-effort で送信前に発火 |
 | reply threading | `reply_to` | どの発言への返信か明示 | ✅ | ○ | `reply_to_message_id` は Domain に既存、`--reply-to` 配線で完成（ほぼ無コスト） |
-| **受信メディアの中身理解** | （公式になし） | voice/audio/video→transcript、docx/pptx/xlsx→markdown | ✅ | ◎ | **TS が公式を超越する強み**。公式は file_id forward + download 止まりで中身を読まない |
+| **受信メディアの中身理解** | （公式になし） | voice/audio/video→transcript、docx/pptx/xlsx→markdown | ✅ | ◎ | **本スキルが公式を超越する強み**。公式は file_id forward + download 止まりで中身を読まない |
 | 絵文字リアクション | `react` | 軽い ack（既読スタンプ） | ❌ | ✕ | 返信本文の UTF-8 絵文字で代替可。さらに **1:1 DM では bot が管理者になれず inbound reaction も構造的に受信不可** |
 | 送信済み編集 | `edit_message` | 長時間タスクの進捗更新 | ❌ | ○ | 効用はあるが、`message_id` の状態管理を stateless 設計に持ち込むため見送り。必要なら独立追加 |
 | markdownv2 整形 | `format` | 見出し / 強調 | ❌ | △ | MarkdownV2 は `_*[]()~>#+-=\|{}.!` 全エスケープ要で送信失敗リスク。後付け容易ゆえ YAGNI 保留 |
@@ -181,9 +181,9 @@ Claude 公式の Telegram plugin（`/channels`）と比較した機能採否の�
 
 ### 構造的要約
 
-「公式にあって TS にない」機能は**送信側 UX 装飾**に偏り、「TS にあって公式にない」機能は**受信の中身理解**（voice/docx の transcript/md 化）に集中する。この非対称が、設計思想「秘書の価値は read 系」の裏返しとして表に出ている。
+「公式にあって本スキルにない」機能は**送信側 UX 装飾**に偏り、「本スキルにあって公式にない」機能は**受信の中身理解**（voice/docx の transcript/md 化）に集中する。この非対称が、設計思想「秘書の価値は read 系」の裏返しとして表に出ている。
 
-整理すると——**pairing は「誰を入れるか」、commands は「何ができるかの提示」、group は「どこで聞くか」**。TS は「`<OWNER>` と少数の関係者が、1:1 で、自然文で呼ぶ」運用に絞るため、これら3つは現状不要としている。
+整理すると——**pairing は「誰を入れるか」、commands は「何ができるかの提示」、group は「どこで聞くか」**。本スキルは「`<OWNER>` と少数の関係者が、1:1 で、自然文で呼ぶ」運用に絞るため、これら3つは現状不要としている。
 
 ### 今後の判断指針
 

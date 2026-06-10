@@ -294,7 +294,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 ## cloud routine ライフサイクル管理（schedule / unschedule）
 
-> **この節は「登録される prompt body」の一部ではない。** `/shiori-secretary` を呼んだエージェントが、この常駐 routine 自体を cloud routine に登録・更新・停止するための **メタ操作手順** である。`RemoteTrigger` ツールで操作する（Python CLI ではない — RemoteTrigger はツールゆえ `scripts/main.py` には置けない）。RemoteTrigger の body shape（events の v1 ネスト・`uuid` 必須形式等）の **正典は内蔵 `schedule` skill**。ここには **TS 固有の登録内容のみ**記し、汎用スキーマは転記しない（`schedule` skill / `MEMORY: reference_remote_trigger_update` を参照＝SSoT）。
+> **この節は「登録される prompt body」の一部ではない。** `/shiori-secretary` を呼んだエージェントが、この常駐 routine 自体を cloud routine に登録・更新・停止するための **メタ操作手順** である。`RemoteTrigger` ツールで操作する（Python CLI ではない — RemoteTrigger はツールゆえ `scripts/main.py` には置けない）。RemoteTrigger の body shape（events の v1 ネスト・`uuid` 必須形式等）の **正典は内蔵 `schedule` skill**。ここには **本スキル固有の登録内容のみ**記し、汎用スキーマは転記しない（内蔵 `schedule` skill を参照＝SSoT）。
 
 ### Routine 設定（配布時プレースホルダ、登録後に実値を控える）
 
@@ -332,18 +332,18 @@ python scripts/main.py init-config --session-duration-sec <秒> --agent-name <�
    - **不在 → create**：`RemoteTrigger action=create body={下記骨子}`
    - **既存 → get→modify→update**：`RemoteTrigger action=get trigger_id=<id>` で `job_config` 全体を取得 → 変えたい部分（cron / prompt body / model / `enabled`）**だけ**差し替え → `RemoteTrigger action=update trigger_id=<id> body={取得した job_config 全体＋変更}`。
 
-4. **body 骨子（TS 固有の登録内容。汎用スキーマは `schedule` skill 正典）**：
+4. **body 骨子（本スキル固有の登録内容。汎用スキーマは `schedule` skill 正典）**：
    - `name`: `shiori-secretary`
    - `cron_expression`: 勤務帯（`session_duration_sec` と組で「9–17 時」等を表現。コードに時計を持たせない設計の表側）
    - `enabled`: `true`（有効化。停止中の再開も同じ＝`enabled` を `true` に上書き）
    - `job_config.ccr.environment_id`: 上記で控えた id
    - `job_config.ccr.events[0].data.message.content`: **この ROUTINE_PROMPT.md の「## あなたへ」〜「## Failure modes」までの本文**（本ライフサイクル管理節は含めない）。送信前に本文中の **`<INSTALL_DIR>` を skill の実配置パス**（cwd＝2リポ親起点での本スキルへの相対パス。例 `my-config-repo/ShioriSecretary`）、**`<BASE_REPO>` を `sources` の基本設定リポ名**（例 `my-config-repo`）、**`<PRIVATE_DIR>` を config の `private_dir`**（例 `my-private-repo/ShioriSecretary`）へ**置換**する（cwd＝2リポ親起点で bootstrap 前の Read/source 行を解決可能にする。bootstrap 後は env 解決ゆえ置換対象外）
    - `job_config.ccr.session_context.sources`: 本体リポ＋ Private リポの git URL
-   - `job_config.ccr.session_context.outcomes`: **registry の push に `registry_branch` の名指し宣言は不要**（2026-06-05 worktree 移行後）。管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `claude/shiori-registry` へ直接 push する方式ゆえ（`bootstrap.sh` 層1 provisioning ＋ `GitCliAdapter.push`、**DESIGN §3.6 が SSoT**）、harness の `outcomes` 配線（session 末の作業ブランチ push）には依存しない。outcomes は自動採番ブランチのままでよい。body スキーマ形式は `schedule` skill / `MEMORY: reference_remote_trigger_update` を正典参照
+   - `job_config.ccr.session_context.outcomes`: **registry の push に `registry_branch` の名指し宣言は不要**（2026-06-05 worktree 移行後）。管理表は `registry_dir`（独立 worktree）から `registry_cli` が固定ブランチ `claude/shiori-registry` へ直接 push する方式ゆえ（`bootstrap.sh` 層1 provisioning ＋ `GitCliAdapter.push`、**DESIGN §3.6 が SSoT**）、harness の `outcomes` 配線（session 末の作業ブランチ push）には依存しない。outcomes は自動採番ブランチのままでよい。body スキーマ形式は内蔵 `schedule` skill を正典参照
    - `job_config.ccr.session_context.allowed_tools`: `["Bash","Read","Write","Edit","Glob","Grep","WebFetch","WebSearch"]`（秘書の依頼対応での調べ物に `WebFetch`/`WebSearch` を許可）
    - `job_config.ccr.session_context.model`: 上表 Model
 
-5. **2つの罠**（詳細は `schedule` skill / `MEMORY: reference_remote_trigger_update` を正典参照）：
+5. **2つの罠**（詳細は内蔵 `schedule` skill を正典参照）：
    - **罠① events は v1 ネスト**：`data` 内に `uuid`（毎回新規 lowercase v4）/ `session_id` / `type:"user"` / `parent_tool_use_id:null` / `message` をネストする。`get` は flatten した v2 で返るので、その形のまま `update` に渡さない（`unknown field "type"` 等で 400）。
    - **罠② session_context は全置換**：`update` は shallow merge せず置換する。必ず `get` で全体を取得し、必要部のみ変えて返す（`sources` / `outcomes` / `allowed_tools` / `model` の消失事故を防ぐ。観測履歴 2 件の実害あり）。
 

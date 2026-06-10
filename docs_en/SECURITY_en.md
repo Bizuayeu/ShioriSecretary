@@ -93,8 +93,8 @@ The boundaries when distributing as a plugin:
 - [ ] Are the token redact tests green (including the network error path)
 - [ ] Is the operation of injection_flags / the output leak scan specified in ROUTINE_PROMPT
 - [ ] Do any proper nouns (persona name / operating-entity name / organization name / local absolute paths) remain in the distributed documentation (grep check)
-- [ ] Are the placeholders (`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`) used according to convention ([STRUCTURE_en.md](./STRUCTURE_en.md))
+- [ ] Are the placeholders (`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`) used according to convention ([STRUCTURE_en.md](./STRUCTURE_en.md))
 
 ## Relationship with the Root `SECURITY.md`
 
-The upper-level `<REPO_ROOT>/SECURITY.md` (the agent body's general response guidelines: refusal style, hiding internal information, general prompt injection) is loaded by ROUTINE_PROMPT Step 0. This file covers **the security mechanisms of the skill called ShioriSecretary**. The two are at different layers, and as a distributed artifact this file is self-contained.
+The upper-level `<BASE_REPO>/SECURITY.md` (the agent body's general response guidelines: refusal style, hiding internal information, general prompt injection) is loaded by ROUTINE_PROMPT Step 0. This file covers **the security mechanisms of the skill called ShioriSecretary**. The two are at different layers, and as a distributed artifact this file is self-contained.

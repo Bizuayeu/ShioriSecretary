@@ -4,6 +4,34 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.2.3] - 2026-06-10 — robustness fixes and internal refactoring from the post-release full review
+
+### Fixed
+
+- **Fixed media download network failures crashing watch and permanently losing every message in the batch** — only the size-limit exception was caught, so network-class exceptions (CDN 4xx, expired file_id, etc.) propagated and killed watch with a traceback. Because fetch advances the offset *before* download, the messages in the crashed batch (text included) could never be re-fetched. Network failures are now flagged as `skip_reason="download_failed"` (the "flag and emit, never block" principle); only `AuthFailureError` (401) propagates. The failure contract is now documented on the MediaDownloader Port.
+- **Fixed captions bypassing NFKC normalization and injection flagging** — only `text` was normalized while captions were merged raw, so a full-width injection phrase in a photo caption (the most common input shape) never got flagged. Captions now pass through `normalize_input` before merging.
+- **Aligned the `init-config` argparse default with the template default `14400`** — a leftover from the 1.2.1 unification sweep; only the no-flag invocation still wrote `7200` (2h).
+- **Converted unhandled CLI tracebacks into explicit input errors (exit 2)** — registry add with neither `--json` nor `--json-file` (TypeError) or a missing `--json-file` path (FileNotFoundError), a missing `--text-file` for `send-reply`/`proactive-send`, and a malformed `--pages` for `render-pdf` all crashed with exit 1 (a false "transient" signal). They now return EXIT_CONFIG_INVALID with a clear message.
+
+### Changed
+
+- **Made every JSON store save/rewrite atomic (tmp + `os.replace`)** — truncate-then-write could lose the whole WAL or silently wipe a registry on mid-write crashes (e.g. the ~4h cloud routine container kill): corruption → `[]` fallback load → a one-record table pushed to the remote. Consolidated into the shared helper `adapters/atomic_io.py`, which also unifies the corruption-tolerant load.
+- **Lease acquisition now uses exclusive creation (`O_CREAT|O_EXCL`)** — the load→check→save TOCTOU let two containers started by simultaneous crons both win the lease. The fresh-acquisition path goes through `try_create` (OS-level exclusive create), structurally limiting the winner to one (stale takeover and self-renewal unchanged).
+- **git subprocesses get a timeout (90s) and `GIT_TERMINAL_PROMPT=0`** — blocking forever on a credential prompt froze the secretary's entire turn (WAL push is the send gate). A failed `pull --rebase` now best-effort runs `rebase --abort` before raising (preventing an unrecoverable rebase-in-progress tree). git stderr is scrubbed for URL-embedded credentials, closing the remaining PAT leak path.
+- **bootstrap sanity-checks the registry worktree before re-provisioning** — a misconfigured `registry_dir` no longer gets silently `rm -rf`-ed (destructive re-provision is allowed only for absent/empty/known-registry-entries-only directories; worktree comparison uses physical paths to avoid symlink false mismatches).
+- **Eliminated the duplicated dependency pins** — heavy dependencies moved to the `media` / `voice` extras in pyproject; bootstrap now runs `pip install -e ".[media,voice]"` per tier (pyproject is the single source of pins; bootstrap no longer restates them). Removed `main.py` from the coverage omit list to surface the real figure (95%).
+- **Unified telegram retry logic and the 429 policy** — the duplicated retry loops in api_gateway / media_downloader are extracted into `http_retry.py`. The CDN path used to die instantly on 429, ignoring Retry-After; it now honors it like the Bot API path. Also removed unreachable code (`last_exc`) and the duplicated `DEFAULT_USER_AGENT`.
+- **Dropped `tolist()` in the ffmpeg preprocessor** — converting long audio to a Python list could balloon to multiple GB. Samples are passed to the transcriber as an ndarray.
+- **Internal refactoring (behavior-preserving)** — the duplicated lease verification in send-reply/proactive-send extracted to a helper in `usecases/outbound.py`; attachment validation (FS I/O) moved from domain to usecases (restoring domain purity); main.py's subparser×handlers-dict double bookkeeping replaced with `set_defaults(handler=)`; private-symbol cross-module imports resolved (DI assembly moved to composition under public names); WAL checkpoint now preserves chronological interleave order; registry remove promoted to the domain pure function `remove_by`; type validation for config `agent_name`/`private_dir`; defensive int cast for `message_id`; test-suite deduplication (time helper, fakes, Config builder); docstrings aligned with actual behavior.
+
+### Added
+
+- **LICENSE file (MIT)** — plugin.json / marketplace.json declared `"license": "MIT"` with no license text in the repo (legal hygiene for a public repository). Also added the `license` field to pyproject.
+
+### Notes
+
+- A batch fix based on the post-release full review (four parallel lenses: domain+usecases / adapters / infrastructure+CLI / distribution consistency). Development residue in the distributed docs (parent-repo abbreviations, personal memory references, ghost skill references, placeholder inconsistencies) was cleaned up in the same pass. No behavioral contract changes. Tests: 512 → 562 (+50).
+
 ## [1.2.2] - 2026-06-07 — happy-path settle for proactive-send (curing false outage apologies)
 
 ### Fixed
@@ -32,15 +60,12 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 - **Changed the template default and quickstart example for `session_duration_sec` to `14400` (4h)** — Unified the default value in `config.template.json` and the `init-config` examples (README / commands) to the residency-oriented guideline of `14400`, matched to the measured ceiling of cloud routine (about 4h) (previously `7200`). Also documented the rationale for the default in the field description of `config.template.json`.
 - **Unified the production residency example from a 2h window to a 4h window** — Updated the production settings in the README quickstart notes and the `$SHIORI_MAX_TURNS` computation example in ROUTINE_PROMPT to the measured 4h (`24h≈507・2h≈42` → `24h≈507・4h≈84`). The comment computation example in `bootstrap.sh` was synced as well (behavior and formula unchanged, example values only). The `580s` window (one polling cycle length) is independent of the session window and therefore unchanged.
 - **Clarified the `MAX_SECONDS` comment in `session_config.py`** — Noted that `86400` (24h) is a validity guard ceiling for the value range and is a separate layer from the platform's actual session ceiling (about 4h by measurement) (value unchanged).
+- **Extended the `wal-redo` contract to "resend only for the outbound kind"** — Extended the previous contract ("replies are not resent," exclusive to redo of the registry kind) to a form that bisects entries into the registry kind and the outbound kind. **The registry kind is unchanged** (reconcile→upsert→settle; pre-send crash portions are handled by offset re-fetch, so they are not resent), and only the outbound kind is resent once in an independent loop. Added `outbound` to the choices of `wal-append --kind`.
 
 ### Added
 
 - **`proactive-send` subcommand (proactive outbound by the secretary)** — A bidirectional capability that handles proactive sends not tied to an inbound, in contrast to replies to received messages (`send-reply`). A sibling UseCase that removes the `OffsetStore` dependency and offset advance from `SendReply`, **offset-noninterfering** (offset is the read ledger exclusive to inbound, so it is not held as a dependency = structurally seals off the accident of "advancing and missing unread inbound"). The invariants of lease verification→attachment verification→send→lease renew are inherited from send-reply. The arguments are `--chat-id` (required) / `--text-file` (required) / `--owner` / `--file` (multiple allowed) / `--reply-to`, and it **does not have `--update-id`** (the difference from send-reply). The exit codes are identical to send-reply (0/1/2/3/4). The capability boundary (the secretary is inbound by default, outbound by verbal grant) is the SSoT in SecretaryRole, and the idempotency design for resend is the SSoT in DESIGN §3.9.
 - **outbound resend for `wal-redo` (the outbound version of word-deed consistency)** — Because proactive-send is not tied to an inbound and has no offset safety net, WAL resend is its only idempotency guarantee. On startup, resend the pending of the outbound kind **exactly once** (prefixing the body with the originally scheduled send time + an apology prefix) and immediately `mark_done` (resend→immediate done to prevent an infinite resend loop; it has neither TTL nor content-hash dedup). The guarantee you can buy is at-least-once, and the design neutralizes duplicates not by technology but by harmlessly absorbing "recipient confusion" at the social layer (DESIGN §3.9). Write ahead with `wal-append --kind outbound` (`chat_id` required).
-
-### Changed
-
-- **Extended the `wal-redo` contract to "resend only for the outbound kind"** — Extended the previous contract ("replies are not resent," exclusive to redo of the registry kind) to a form that bisects entries into the registry kind and the outbound kind. **The registry kind is unchanged** (reconcile→upsert→settle; pre-send crash portions are handled by offset re-fetch, so they are not resent), and only the outbound kind is resent once in an independent loop. Added `outbound` to the choices of `wal-append --kind`.
 
 ## [1.1.0] - 2026-06-04 — capability catalog (abilities)
 
