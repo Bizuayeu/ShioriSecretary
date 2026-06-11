@@ -78,7 +78,7 @@ The "**when and at what granularity to partition/archive**" of anti-bloat is the
 | **KNOWLEDGE** | **Category partitioning** (no Archive) | Knowledge is **accumulative in essence** (a case DB is not discarded for being old). Bloat is solved by sharding into category units |
 | **ABILITIES** | **Category partitioning** (no Archive, same shape as KNOWLEDGE) | A capability catalog is also accumulative in essence (not discarded). The partitioning unit/key is defined by the agent when needed (the JSON flexibility of §3.2) |
 
-For detailed schemas and directory layout, see [STRUCTURE.md](./STRUCTURE_en.md).
+For detailed schemas and directory layout, see [STRUCTURE_en.md](./STRUCTURE_en.md).
 
 ### 3.6 Why the registry is persisted via git (volatile/persistent separation)
 

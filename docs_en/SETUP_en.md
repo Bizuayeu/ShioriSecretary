@@ -2,7 +2,7 @@
 
 **The setup manual for slipping ShioriSecretary — the "bookmark that grants a secretary" — into your Claude model and your environment.** It keeps a secretary that responds 24-7 over Telegram resident on **Claude Code Routines** (Anthropic's cloud-execution scheduled-agent platform; Remote execution = cloud routine) — a route designed to **get you running without getting lost**, almost entirely within the claude.ai GUI and the Telegram app.
 
-> The SSoT for the specification is [SKILL.md](../skills/shiori-secretary/SKILL_en.md); the detailed startup procedure is in [ROUTINE_PROMPT.md](./ROUTINE_PROMPT_en.md); the placement conventions are in [STRUCTURE.md](./STRUCTURE_en.md); local verification is in [README.md](../README_en.md). This document is the "route to begin operation" that sits on top of those.
+> The SSoT for the specification is [SKILL_en.md](../skills/shiori-secretary/SKILL_en.md); the detailed startup procedure is in [ROUTINE_PROMPT_en.md](./ROUTINE_PROMPT_en.md); the placement conventions are in [STRUCTURE_en.md](./STRUCTURE_en.md); local verification is in [README_en.md](../README_en.md). This document is the "route to begin operation" that sits on top of those.
 
 ## Overview
 
@@ -127,8 +127,8 @@ Don't give the clock to the code; express it with **cron (launch timing) + `sess
 
 ## References
 
-- Specification SSoT: [SKILL.md](../skills/shiori-secretary/SKILL_en.md)
-- Startup procedure: [ROUTINE_PROMPT.md](./ROUTINE_PROMPT_en.md)
-- Structure map: [STRUCTURE.md](./STRUCTURE_en.md)
-- Security canon: [SECURITY.md](./SECURITY_en.md)
-- Local verification: [README.md](../README_en.md)
+- Specification SSoT: [SKILL_en.md](../skills/shiori-secretary/SKILL_en.md)
+- Startup procedure: [ROUTINE_PROMPT_en.md](./ROUTINE_PROMPT_en.md)
+- Structure map: [STRUCTURE_en.md](./STRUCTURE_en.md)
+- Security canon: [SECURITY_en.md](./SECURITY_en.md)
+- Local verification: [README_en.md](../README_en.md)

@@ -14,7 +14,7 @@ description: A "magic bookmark" that grants a secretary to any Claude model (Opu
 - **Responding entity**: The agent itself in the parent process handles responses (the design principle of not spawning multiple LLM inference subprocesses). This skill only does fetch / authorization / normalization / send
 - **state persistence**: `offset.json` + `lease.json` are saved in `state_dir`, with heartbeat + TTL lease for concurrency prevention and crash self-healing. **The registry (individuals/tasks/knowledge/abilities) lives in `registry_dir`, separated from the volatile state, and when `registry_sync` is enabled it is git-persisted to a fixed branch** (event-driven commit&push + fetch at startup, no force)
 - **Word-deed consistency guarantee (WAL, when `registry_sync` is enabled)**: registry push is best-effort, so an inconsistency where "the reply said it was registered but it isn't" can occur. The **WAL (Write-Ahead Log)** prevents this — before sending a registration-type reply, the intent is push-ahead to the WAL log (`registry_dir/wal/WAL.jsonl`, on the same fixed branch) (must-succeed = if push fails, the message is not sent either), and at startup any unreflected entries are redone into the registry (key-idempotent). The log also doubles as short-term memory of the conversation context for the last 24h
-- **The heart with zero idle slot**: `/goal` runs foreground `watch --exit-on-message` each turn until the deadline. On message receipt it immediately exits → replies → restarts (instant response, latency ≤ the long-poll timeout); when there are no messages it blocks on the long-poll (minimal wait tokens + keeps the session warm via the foreground call). Details in [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md)
+- **The heart with zero idle slot**: `/goal` runs foreground `watch --exit-on-message` each turn until the deadline. On message receipt it immediately exits → replies → restarts (instant response, latency ≤ the long-poll timeout); when there are no messages it blocks on the long-poll (minimal wait tokens + keeps the session warm via the foreground call). Details in [`ROUTINE_PROMPT_en.md`](../../docs_en/ROUTINE_PROMPT_en.md)
 
 ## Daily Workflow (at cloud routine startup)
 
@@ -32,7 +32,7 @@ description: A "magic bookmark" that grants a secretary to any Claude model (Opu
 8. At session end, lease release (so the next cron can pick it up)
 ```
 
-Processing branches per media item (full flow in [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md)):
+Processing branches per media item (full flow in [`ROUTINE_PROMPT_en.md`](../../docs_en/ROUTINE_PROMPT_en.md)):
 
 - **`rendered_text` non-null (`render_status="ok"`)** → use that text directly. docx/pptx/xlsx are markdown, voice/audio/video are the audio transcription transcript (distinguish via `kind`/`mime_type`)
 - **`derived_image_paths` non-empty (PDF)** → PDF is always rendered to images (`rendered_text=""`). Grasp the gist of the first up-to-5 pages with Vision, then decide on ① full-text (`render-pdf --text`) / ② close-read individual pages / ③ enough (details in "Handling PDFs" below)
@@ -84,7 +84,7 @@ PDFs are **always rendered to images for all pages** (no detection of whether a 
 
 ## cloud routine lifecycle (schedule / unschedule)
 
-The operation by which the agent that invoked `/shiori-secretary` registers, updates, or stops this resident routine itself on the cloud routine. **Not the Python CLI but a `RemoteTrigger` tool procedure** (a separate lineage from the Subcommands table above = the deterministic CLI). The SSoT for the procedure is the "cloud routine lifecycle management" section of [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md), and the canon for the body shape is the built-in `schedule` skill.
+The operation by which the agent that invoked `/shiori-secretary` registers, updates, or stops this resident routine itself on the cloud routine. **Not the Python CLI but a `RemoteTrigger` tool procedure** (a separate lineage from the Subcommands table above = the deterministic CLI). The SSoT for the procedure is the "cloud routine lifecycle management" section of [`ROUTINE_PROMPT_en.md`](../../docs_en/ROUTINE_PROMPT_en.md), and the canon for the body shape is the built-in `schedule` skill.
 
 | Operation | Function | Reality |
 |---|---|---|
@@ -118,7 +118,7 @@ The operation by which the agent that invoked `/shiori-secretary` registers, upd
 | `SHIORI_OUTBOUND_MAX_SIZE_BYTES` | optional | Limit for **outbound** attachments (default 50MB, the Telegram bot API limit). Excess is rejected before sending with `AttachmentTooLarge` (exit 2) |
 | `SHIORI_PDF_IMAGE_MAX_PAGES` | optional | Upper limit on the number of leading pages `render()` pre-renders to images on PDF receipt (default 20). A disk/token safety valve for very many pages. The 21st page onward is generated on-demand with `render-pdf --pages`, `page_count` is the actual total |
 
-> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required, fail-fast). Working hours (e.g., 9-17) are expressed via the cloud routine cron (`0 9-16 * * 1-5`) + duration (no clock held in code). The `/goal` deadline-driven operational variables (`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh` (SSoT. `SHIORI_SESSION_DURATION_SEC` is abolished = the duration setting value is not exposed to env, a pure 2-layer design). `BASH_MAX_TIMEOUT_MS=600000` is in `{private_dir}/.claude/settings.json`. Details in [`ROUTINE_PROMPT.md`](../../docs_en/ROUTINE_PROMPT_en.md).
+> **Duration is `session_duration_sec` in config.json** (range 1–86400 seconds, required, fail-fast). Working hours (e.g., 9-17) are expressed via the cloud routine cron (`0 9-16 * * 1-5`) + duration (no clock held in code). The `/goal` deadline-driven operational variables (`SHIORI_SESSION_DEADLINE_EPOCH` / `SHIORI_POLL_SET_SEC` / `SHIORI_POLL_BASH_TIMEOUT_MS` / `SHIORI_MAX_TURNS`) are computed from config.json and exported by `bootstrap.sh` (SSoT. `SHIORI_SESSION_DURATION_SEC` is abolished = the duration setting value is not exposed to env, a pure 2-layer design). `BASH_MAX_TIMEOUT_MS=600000` is in `{private_dir}/.claude/settings.json`. Details in [`ROUTINE_PROMPT_en.md`](../../docs_en/ROUTINE_PROMPT_en.md).
 
 ## Security
 

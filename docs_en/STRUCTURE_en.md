@@ -93,12 +93,15 @@ ShioriSecretary/
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
 │   │   ├── fetch_authorized_updates.py / send_reply.py
 │   │   ├── proactive_send.py    # proactive send (a sister UseCase to send-reply with the OffsetStore dependency removed, offset-noninterfering)
+│   │   ├── outbound.py       # pre-send guards shared by send-reply / proactive-send (lease re-verification, attachment validation)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # registry CRUD UseCase
+│   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
 │   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
 │   ├── adapters/
+│   │   ├── atomic_io.py      # atomic write (tmp→os.replace) + corruption-fallback load shared by JSON stores
 │   │   ├── media_failure.py  # failure logging + redact helper shared by render/transcribe
-│   │   ├── telegram/         # api_gateway / media_downloader
+│   │   ├── telegram/         # api_gateway / media_downloader / http_retry (shared retry, honors 429 Retry-After)
 │   │   ├── state/            # json_state_store / emitter
 │   │   ├── render/ transcribe/ audio/   # markitdown / pdf / moonshine / ffmpeg
 │   │   ├── registry/         # json_registry_store / git_cli (commit&push to fixed branch)
