@@ -12,7 +12,7 @@ description: Claude のモデル（Opus/Fable/Mythos）に秘書を授ける"魔
 - **目的**: Gmail より低レイテンシ（数秒）で `<OWNER>` から呼べる常駐秘書。定時通知配信のような push 型に対し、pull/対話型として 24-7 到達口を提供
 - **受信方式**: Telegram getUpdates の long-polling（公開 ingress 不要のため **Claude Code Routines**（Anthropic のクラウド実行＝cloud routine）と整合）
 - **応答主体**: 親プロセスのエージェント本人が担う（LLM 推論をサブプロセスで多重起動しない設計原則）。本スキルは fetch / 認可 / 正規化 / 送信のみ
-- **state 永続化**: `offset.json` + `lease.json` を `state_dir` に保存、heartbeat + TTL リースで並走防止と crash 自己治癒。**管理表（individuals/tasks/knowledge/abilities）は揮発 state と分離した `registry_dir` に置き、`registry_sync` 有効時は固定ブランチへ git 永続化**（イベント駆動 commit&push + 起動時 fetch、force 不使用）
+- **state 永続化**: `offset.json` + `lease.json` を `state_dir` に保存、heartbeat + TTL リースで並走防止と crash 自己治癒。**管理表（7表: individuals/tasks/knowledge/abilities/profile/goals/steps）は揮発 state と分離した `registry_dir` に置き、`registry_sync` 有効時は固定ブランチへ git 永続化**（イベント駆動 commit&push + 起動時 fetch、force 不使用）
 - **言行一致の保証（WAL、`registry_sync` 有効時）**: registry の push は best-effort ゆえ「登録したと返信したのに未登録」の不整合が起きうる。これを **WAL（Write-Ahead Log）** で防ぐ——登録系の返信の前に intent を WAL ログ（`registry_dir/wal/WAL.jsonl`、同一固定ブランチ）へ先行 push（must-succeed＝push 不能なら送信もしない）し、起動時に未反映分を registry へ redo（key 冪等）。ログは直近 24h の会話文脈の短期記憶も兼ねる
 - **アイドル枠ゼロの心臓部**: `/goal` が deadline まで各ターンで foreground `watch --exit-on-message` を回す。メッセージ受信で即 exit→返信→再起動（即応、遅延 ≤ long-poll の timeout）、無メッセージ時は long-poll でブロック（待機トークン最小＋ foreground call でセッション warm 保持）。詳細は [`ROUTINE_PROMPT.md`](../../docs/ROUTINE_PROMPT.md)
 
@@ -22,7 +22,7 @@ description: Claude のモデル（Opus/Fable/Mythos）に秘書を授ける"魔
 1. Step 0 で `config.json` を読み `agent_name`/`private_dir` を把握 → `source bootstrap.sh` で依存導入 + validate-config（config.json の session_duration_sec 検証含む）+ `SHIORI_SESSION_ID` を env 共有
 2. egress 疎通確認（curl api.telegram.org/.../getMe を invalid token で叩いて 401/404 が返ることを確認）
 3. lease acquire（他セッション保持中なら exit 4 で即終了＝自己治癒）
-4. 起動時オリエンテーション = registry 4表（individuals/tasks/knowledge/abilities）を一括 list でコンテキストにロードし、自由時間（autonomous turn）の actionability 判断（grant 下なら継続型タスクの能動 push 等を1つ、値しなければ inbound 専念）。詳細は ROUTINE_PROMPT Step 5
+4. 起動時オリエンテーション = registry 7表（individuals/tasks/knowledge/abilities/profile/goals/steps）を一括 list ＋ `role-status` でコンテキストにロードし、今日の役割（秘書/執事/コーチ/アネゴ）を確定。自由時間（autonomous turn）の actionability 判断（grant 下なら継続型タスクの能動 push・STEPS 期限近接の伴走ナッジ等を1つ、値しなければ inbound 専念）。詳細は ROUTINE_PROMPT Step 5
 5. `/goal` で deadline（`$SHIORI_SESSION_DEADLINE_EPOCH`）まで監視を駆動。各ターン = foreground
    `watch --exit-on-message --max-duration <残り窓> --timeout 30`（この call のみ bash
    `timeout: $SHIORI_POLL_BASH_TIMEOUT_MS`、他は既定 2分）
@@ -74,9 +74,10 @@ PDF は **常に全ページ画像化**する（テキスト層の有無を判�
 | `test --chat-id` | owner chat に ping 1通 | 0=OK, 1=送信失敗, 3=auth |
 | `cleanup-media` | `state_dir/media/` 配下で `media_retention_hours` 超過の保存 media を削除（手動 / cron）。`watch` は `--cleanup-interval` で自動発火（既定 120 サイクル≒1h） | 0=OK, 2=設定欠損 |
 | `render-pdf --path <pdf> (--text \| --pages N-M)` | 受信済み PDF のオンデマンド抽出。`--text`=全ページのテキスト層（pdfplumber、`--- page N ---` マーカー）、`--pages N-M`=指定ページ画像化（1-indexed inclusive、cap 超 21 枚目以降用）。結果は JSON 1 行で stdout。`--text`/`--pages` は排他必須 | 0=OK, 2=ファイル不在/引数不正 |
-| `individuals\|tasks\|knowledge\|abilities {list\|get\|add\|remove}` | 管理表（INDIVIDUALS/TASKS/KNOWLEDGE/ABILITIES）の CRUD。`get`/`remove` は `--key`（uuid/id）、`add` は `--json`/`--json-file`。値オブジェクトで検証。SSoT は Private JSON、操作主体は SecretaryRole、入口は `/shiori-secretary`。`registry_sync` 有効時は add/remove 後に commit&push（イベント駆動） | 0=OK, 2=不正入力 |
+| `individuals\|tasks\|knowledge\|abilities\|profile\|goals\|steps {list\|get\|add\|remove}` | 管理表（7表: INDIVIDUALS/TASKS/KNOWLEDGE/ABILITIES/PROFILE/GOALS/STEPS）の CRUD。`get`/`remove` は `--key`（uuid/id）、`add` は `--json`/`--json-file`。値オブジェクトで検証。SSoT は Private JSON、操作主体は SecretaryRole、入口は `/shiori-secretary`。`registry_sync` 有効時は add/remove 後に commit&push（イベント駆動） | 0=OK, 2=不正入力 |
+| `role-status` | PROFILE/GOALS から現在の役割（secretary/butler/coach/anego）を決定論導出し JSON 1行で emit（P=principal の PROFILE≥1、A=active な GOALS≥1。役割の自称をしない＝判定はコード、演技は SecretaryRole。DESIGN §3.11）。起動時オリエンテーションが1回叩く | 0=OK |
 | `registry-sync` | 起動時に固定ブランチから管理表を fetch（`registry_sync` 有効時のみ、無効は no-op）。最新の管理表で起動するため ROUTINE_PROMPT が起動時に1回呼ぶ | 0=OK, 1=fetch失敗 |
-| `wal-append --kind <individuals\|tasks\|knowledge\|abilities\|outbound> (--json \| --json-file)` | WAL に intent を pending 追記（**登録系の返信の前**、言行一致保証の先行書込）。`outbound` は通常 `proactive-send` が内包するため手動使用は非推奨。`registry_sync` 有効時のみ・無効は no-op | 0=OK, 2=不正 |
+| `wal-append --kind <individuals\|tasks\|knowledge\|abilities\|profile\|goals\|steps\|outbound> (--json \| --json-file)` | WAL に intent を pending 追記（**登録系の返信の前**、言行一致保証の先行書込）。kind は registry 全7表＋outbound（choices は `REGISTRY_SPEC` 導出＝表追加に自動追従）。`outbound` は通常 `proactive-send` が内包するため手動使用は非推奨。`registry_sync` 有効時のみ・無効は no-op | 0=OK, 2=不正 |
 | `wal-push [--message]` | WAL ログを commit & push（**must-succeed**＝失敗は exit 1＝**送信前ゲートで send-reply を中止**）。`registry_sync` 無効は no-op | 0=OK, 1=push失敗 |
 | `wal-redo` | 起動時に WAL の pending を redo（`registry_sync` 有効時）。registry kind は upsert（key 冪等・**inbound 返信は再送しない**）、outbound kind は happy-path settle 後に残った中断分のみ1回再送→即 done。ROUTINE_PROMPT が registry-sync 直後に1回呼ぶ | 0=OK |
 

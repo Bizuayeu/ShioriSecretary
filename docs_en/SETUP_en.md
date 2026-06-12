@@ -57,7 +57,7 @@ Copy the template [`templates/SecretaryRole.template.md`](../templates/Secretary
 
 > Place config.json at **the base-configuration repo's `ShioriSecretary/config.json` and commit it so the cloud routine can read it on a fresh clone** (it contains no secrets, just operational settings, so committing is fine). In the distributed repo it is a `.gitignore` target, so track it explicitly on the operational repo side.
 
-**If you want to persist the management tables (related parties / requests / response knowledge / ability catalog) to the repository** (optional, recommended) — because the cloud routine launches with a fresh clone every time and the execution environment is volatile, persisting the management tables the secretary has accumulated to the next launch requires **git persistence to a fixed branch of the repository**. Since `init-config` does not generate these, add the following to config.json (the template is `templates/config.template.json`):
+**If you want to persist the management tables (related parties / requests / response knowledge / ability catalog / person understanding / goals / reverse-planned steps) to the repository** (optional, recommended) — because the cloud routine launches with a fresh clone every time and the execution environment is volatile, persisting the management tables the secretary has accumulated to the next launch requires **git persistence to a fixed branch of the repository**. Since `init-config` does not generate these, add the following to config.json (the template is `templates/config.template.json`):
 
 ```json
 {
@@ -68,7 +68,7 @@ Copy the template [`templates/SecretaryRole.template.md`](../templates/Secretary
 ```
 
 - `registry_sync`: set to `true` to git-persist the management tables to a fixed branch (commit & push on every update + fetch at startup). For local verification, use `false` (does not touch git)
-- `registry_dir`: where the persistent management tables (individuals/tasks/knowledge/abilities) live. Keep it **separate from `state_dir`, which holds volatile state (offset/lease/media)**, and point it at **an independent second git working tree (worktree) of the private repo** (bootstrap does idempotent provisioning via `git worktree add`; recommended value `shiori-registry-wt`). **Making it a subdirectory inside the dev tree is not allowed**, because the startup `checkout -B` of fetch would destroy the parent repo (→ DESIGN §3.6). If unset, it falls back to `state_dir`
+- `registry_dir`: where the persistent management tables (individuals/tasks/knowledge/abilities/profile/goals/steps) live. Keep it **separate from `state_dir`, which holds volatile state (offset/lease/media)**, and point it at **an independent second git working tree (worktree) of the private repo** (bootstrap does idempotent provisioning via `git worktree add`; recommended value `shiori-registry-wt`). **Making it a subdirectory inside the dev tree is not allowed**, because the startup `checkout -B` of fetch would destroy the parent repo (→ DESIGN §3.6). If unset, it falls back to `state_dir`
 - `registry_branch`: the fixed branch to push to (default `claude/shiori-registry`). Operated together with `registry_remote` (default `origin`). By separating it from volatile state, you physically separate "things that may disappear" from "things whose accumulation is the essence"
 
 ### ⑥ Register with cloud routine

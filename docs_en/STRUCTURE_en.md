@@ -19,7 +19,7 @@ The angle-bracket tokens used in the distributed documentation and templates are
 | `<PRIVATE_DIR>` | Location of non-public data and persona definitions (in a cloud routine, relative to the cwd parent) | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | Install path | Where ShioriSecretary is placed |
 | `<state_dir>` | Storage for volatile state (offset/lease/media) | env `SHIORI_STATE_DIR` |
-| `<registry_dir>` | Storage for persistent registry + artifacts (an independent git worktree of `claude/shiori-registry`, with the 4 registries + `wal/` + `artifacts/` directly under root. → DESIGN §3.6/§3.10) | config.json `registry_dir` (recommended `shiori-registry-wt`; falls back to `<state_dir>` if unset) |
+| `<registry_dir>` | Storage for persistent registry + artifacts (an independent git worktree of `claude/shiori-registry`, with the 7 registries + `wal/` + `artifacts/` directly under root. → DESIGN §3.6/§3.10/§3.11) | config.json `registry_dir` (recommended `shiori-registry-wt`; falls back to `<state_dir>` if unset) |
 
 `SecretaryRole` is used generically as a role name (no replacement needed). The concrete persona definition lives at `<PRIVATE_DIR>/Identities/SecretaryRole.md`; the template is [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md) (English: [`SecretaryRole.template_en.md`](../templates/SecretaryRole.template_en.md)).
 
@@ -66,9 +66,12 @@ ShioriSecretary/
 │   └── shiori-secretary.md # /shiori-secretary management panel entry
 │
 ├── skills/
-│   └── shiori-secretary/
-│       ├── SKILL.md          # skill manifest (spec SSoT, Japanese)
-│       └── SKILL_en.md       # same (English)
+│   ├── shiori-secretary/
+│   │   ├── SKILL.md          # skill manifest (spec SSoT, Japanese)
+│   │   └── SKILL_en.md       # same (English)
+│   └── precognitive-viewer/  # bundled: triple-divination skill (P-axis route ①, an independent package with no import relationship to the body)
+│       ├── SKILL.md / SKILL_en.md     # distribution manifest (the dynamic-install procedure into ABILITIES)
+│       └── PrecognitiveViewer/        # Python package (Report/Seimei/I-Ching/Tarot/tests, local computation only)
 │
 ├── templates/                # templates only (real data lives in Private)
 │   ├── config.template.json   # template for operational settings (the real one is <INSTALL_DIR>/config.json, .gitignore)
@@ -77,6 +80,9 @@ ShioriSecretary/
 │   ├── TASKS.template.json
 │   ├── KNOWLEDGE.template.json
 │   ├── ABILITIES.template.json
+│   ├── PROFILE.template.json          # template for person understanding (the P axis)
+│   ├── GOALS.template.json            # template for goals (the A axis)
+│   ├── STEPS.template.json            # template for reverse-planned steps
 │   ├── SecretaryRole.template.md
 │   └── SecretaryRole.template_en.md   # English version (standard secretary persona "Shiori")
 │
@@ -86,7 +92,7 @@ ShioriSecretary/
 │   │   ├── models.py / media.py / outbound.py / exceptions.py
 │   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
 │   │   ├── session_config.py # session_duration_sec range validation (MAX_SECONDS guard)
-│   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Ability)
+│   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Ability / Profile / Goal / Step) + derive_role (P×A role derivation, §3.11)
 │   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint / outbound split, DESIGN §3.9)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
@@ -143,6 +149,14 @@ ShioriSecretary/
     │   └── archive/                   # (empty as a rule; only on explicit disposal)
     ├── abilities/
     │   └── ABILITIES.json             # ability catalog (trigger/skill_path/guidance, WAL target)
+    ├── profile/
+    │   └── PROFILE.json               # person understanding (the P axis; subject=principal drives role judgment, accumulation-first)
+    ├── goals/
+    │   ├── GOALS.json                 # goals (the A axis; status=active drives role judgment)
+    │   └── archive/GOALS_<YYYY-MM>.json
+    ├── steps/
+    │   ├── STEPS.json                 # reverse-planned steps (goal_id required; the reference unit for accompaniment nudges)
+    │   └── archive/STEPS_<YYYY-MM>.json   # in tandem with the parent GOAL's Archive
     ├── wal/
     │   └── WAL.jsonl                  # WAL (the say-do-consistency intent log + the last 24h of short-term memory, when registry_sync is enabled)
     └── artifacts/                     # the secretary's artifacts layer (unstructured, schemaless, §3.10). Persistent because accumulation is its essence
@@ -160,6 +174,8 @@ ShioriSecretary/
 | Request data TASKS.json | `<registry_dir>/tasks/` | Private (persistent) |
 | Response knowledge KNOWLEDGE.json (→ split by category) | `<registry_dir>/knowledge/` | Private (persistent) |
 | Ability catalog ABILITIES.json | `<registry_dir>/abilities/` | Private (persistent) |
+| Person understanding PROFILE.json (the P axis) | `<registry_dir>/profile/` | Private (persistent, sensitive PII) |
+| Goals GOALS.json / steps STEPS.json (the A axis) | `<registry_dir>/goals/` `<registry_dir>/steps/` | Private (persistent) |
 | Artifacts (unstructured md/json) | `<registry_dir>/artifacts/` (tree-synced, §3.10) | Private (persistent, **the world of importance**) |
 | Secretary persona SecretaryRole.md | `<Private>/Identities/` | Private |
 | Templates for each registry / the secretary persona | `templates/` | public |

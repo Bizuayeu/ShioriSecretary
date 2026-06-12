@@ -19,7 +19,8 @@ description: cloud routine 常駐 Telegram 秘書の登録・設定・管理表�
 | `schedule` | cloud routine への登録 / 有効化 / 設定上書き（upsert） | `RemoteTrigger` 手順（[ROUTINE_PROMPT.md](../docs/ROUTINE_PROMPT.md)「cloud routine ライフサイクル管理」節）＋ `init-config` |
 | `unschedule` | 停止（`enabled:false`、二度と起動しない） | `RemoteTrigger update` |
 | `init-config` / `show-config` / `validate-config` | 運用設定（config.json）の生成・表示・検証 | `scripts/main.py` |
-| `individuals\|tasks\|knowledge\|abilities {list\|get\|add\|remove}` | 管理表 CRUD（4 表、何を残すか・何を行使するかは SecretaryRole 判断、書き込みは決定論 I/O） | `scripts/main.py` |
+| `individuals\|tasks\|knowledge\|abilities\|profile\|goals\|steps {list\|get\|add\|remove}` | 管理表 CRUD（7 表、何を残すか・何を行使するかは SecretaryRole 判断、書き込みは決定論 I/O） | `scripts/main.py` |
+| `role-status` | P×A 役割（秘書/執事/コーチ/アネゴ）のデータ駆動判定 | `scripts/main.py` |
 | `test --chat-id` | owner chat への疎通 ping | `scripts/main.py test` |
 
 > 詳細な引数・exit code・env vars は [`SKILL.md`](../skills/shiori-secretary/SKILL.md) の Subcommands 表が SSoT。
@@ -37,11 +38,13 @@ description: cloud routine 常駐 Telegram 秘書の登録・設定・管理表�
 /shiori-secretary init-config --session-duration-sec 14400 --agent-name YourSecretary
 /shiori-secretary show-config
 
-# 管理表（関係者・依頼・対応知・能力カタログ）
+# 管理表（関係者・依頼・対応知・能力カタログ・人物理解・目標・逆算ステップ）
 /shiori-secretary individuals list
 /shiori-secretary tasks add --json '{...}'
 /shiori-secretary knowledge get --key <uuid>
 /shiori-secretary abilities list
+/shiori-secretary goals add --json '{...}'
+/shiori-secretary role-status
 
 # 疎通テスト
 /shiori-secretary test --chat-id <your-chat-id>
