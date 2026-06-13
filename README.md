@@ -6,7 +6,7 @@
 
 **Opus（作品）・Fable（伝説）・Mythos（神話）——Claude のモデルという"本"に挟む、魔法の栞。** 本に栞を挟むように、どのモデルにも秘書の役割を授けます。Anthropic のサブスクだけ・専用サーバ不要で、サーバーレスな AI 秘書が誕生します。
 
-栞が「どこまで読んだか」を覚えておくように、関係者・依頼・対応知・能力を記憶（registry）として蓄積し、あなたの文脈を見失いません。その実体は、Telegram を窓口とした 24-7 の対話チャネルです。
+栞が「どこまで読んだか」を覚えておくように、関係者・依頼・対応知・能力——そしてあなた自身の理解を記憶（registry）として蓄積し、あなたの文脈を見失いません。その実体は、Telegram を窓口とした 24-7 の対話チャネルです。
 
 > 📦 **設定の置き場** — 環境固有の値は `<INSTALL_DIR>/config.json`（`agent_name` / `private_dir` / `session_duration_sec` / `registry_*`、雛型 `templates/config.template.json`、`init-config` で生成）に集約します。秘匿（bot token / authorized chats）は env で注入。**運用値の手置換は不要**——人格名・private_dir は config.json、`<INSTALL_DIR>` は bootstrap が env 解決します（`<INSTALL_DIR>`=インストール先 / `<OWNER>`=運用主体 はドキュメント上の読み替え表記）。詳細は [STRUCTURE.md](./docs/STRUCTURE.md)。
 
@@ -28,9 +28,21 @@ Clean Architecture 4層（Domain → UseCase → Interface → Infrastructure、
   - PDF → 全ページ画像化（Vision）＋ オンデマンドの全文テキスト / 個別ページ抽出
   - voice / audio / video → 音声を文字起こし（ローカル STT、音声が外部に出ない）
 - **生成物の送り返し** — 画像・レポート等を返信に添付（reply threading、typing 表示）
-- **管理表（7 表）** — 関係者（INDIVIDUALS）／依頼（TASKS）／対応知（KNOWLEDGE）／能力カタログ（ABILITIES）／人物理解（PROFILE）／目標（GOALS）／逆算ステップ（STEPS）を秘書が判断して記録。秘書は応答前に能力カタログを引き、依頼に使えるスキルがあれば行使する。`registry_sync` 有効時は固定ブランチへ git 永続化（揮発 state と分離・イベント駆動 commit&push）
-- **役割の進化（P×A、アネゴ機能）** — 預けたデータで秘書の顔がデータ駆動で進化する：**秘書**（baseline）→ プロファイルを預けると**執事**（嗜好を踏まえた先回り）→ 目標を預けると**コーチ**（逆算ステップとプロマネ巻き取り）→ 両方で**アネゴ**（人物理解 × 伴走の両輪）。判定は `role-status`（決定論）、演じ方は SecretaryRole。パーソナライズの材料は3経路——同梱の三位占術スキル（`skills/precognitive-viewer`、opt-in）／JSON 出力型占いサイトの紹介（ユーザー自身が取得した JSON を秘書が解釈）／MBTI 等の直接聴取。伴走は四大相談コース（お金・仕事・人間関係・健康）の目標逆算＋proactive-send ナッジ
+- **管理表（7 表）** — 関係者（INDIVIDUALS）／依頼（TASKS）／対応知（KNOWLEDGE）／能力カタログ（ABILITIES）／人物理解（PROFILE）／目標（GOALS）／逆算ステップ（STEPS）を秘書が判断して記録。秘書は応答前に能力カタログを引き、依頼に使えるスキルがあれば行使する。`registry_sync` 有効時は固定ブランチへ git 永続化（揮発 state と分離・イベント駆動 commit&push）。PROFILE / GOALS が蓄積すると秘書の役割が進化する（次節）
 - **言行一致の保証（WAL）** — `registry_sync` 有効時、「登録しました」等の約束をする返信の前に intent を WAL ログへ先行 push（must-succeed＝push 不能なら送信もしない）し、起動時に未反映分を registry へ redo。push 漏れによる「言ったのに未登録」を構造的に防ぐ
+
+## 秘書が育つ——役割の進化（P×A、アネゴ機能）
+
+預けたデータで秘書の顔がデータ駆動で進化します——**秘書**（baseline）から始まり、プロファイルを預けると**執事**、目標を預けると**コーチ**、両方そろうと**アネゴ**へ。役割はフラグではなく**データの状態**から立ち上がります（判定は `role-status`＝決定論、演じ方は SecretaryRole。設計の理由は [DESIGN.md](./docs/DESIGN.md) §3.11）。
+
+|  | 目標なし | 目標あり（GOALS / STEPS） |
+|---|---|---|
+| **プロファイルなし** | 秘書（baseline） | コーチ（目標逆算とプロマネ巻き取り） |
+| **プロファイルあり（PROFILE）** | 執事（嗜好を踏まえた先回り） | アネゴ（人物理解 × 伴走の両輪） |
+
+- **P 軸（パーソナライズ）** — 人物理解の材料は3経路：同梱の三位占術スキル（`skills/precognitive-viewer`、opt-in）／JSON 出力型占いサイトの紹介（ユーザー自身が取得した JSON を秘書が解釈）／MBTI 等の直接聴取
+- **A 軸（伴走）** — 四大相談コース（お金・仕事・人間関係・健康）の目標逆算（GOALS → STEPS）＋ proactive-send ナッジ
+- **卒業まで設計済み** — すべての目標が達成（achieved/abandoned）になると A 軸が降り、アネゴは自然に執事へ戻ります。伴走は預かりもの——変容を見届けたら手を離す仕様です（目標を足せば再びコーチ/アネゴへ、可逆）
 
 ## Quickstart（ローカル動作確認）
 
