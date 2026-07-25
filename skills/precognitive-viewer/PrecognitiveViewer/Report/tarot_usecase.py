@@ -3,6 +3,7 @@
 `Tarot/tarot_engine.py` の Repository + Shuffler を組み合わせて TarotReading を生成する。
 占的なしでも引ける運用（人物リーディング等）を前提に、第三者代理引きに対応する。
 """
+
 from __future__ import annotations
 
 from datetime import datetime

@@ -3,6 +3,7 @@
 コピーされた `Seimei/fortune_teller_assessment.py` の `FortuneTellerAssessment`
 クラスを内部使用し、結果 dict を返す。テスト容易性のため依存性注入可能。
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence

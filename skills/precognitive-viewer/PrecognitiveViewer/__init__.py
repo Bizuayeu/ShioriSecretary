@@ -7,6 +7,7 @@ sys.path に追加する。これにより、コピーされた既存スクリ�
 
 冪等：既に path に存在する場合は追加しない（多重 import 時の安全確保）。
 """
+
 from __future__ import annotations
 
 import sys

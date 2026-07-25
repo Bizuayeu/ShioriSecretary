@@ -4,6 +4,7 @@ photo / document / caption を Domain 層の純粋型として表現する。
 bytes は持たず file_id 等の identifier のみ保持（Infrastructure 層の local_path に閉じ込め）。
 MediaAttachment.file_name と RenderedMedia 値オブジェクトも持つ。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

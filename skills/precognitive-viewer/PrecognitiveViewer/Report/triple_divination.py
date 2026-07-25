@@ -3,6 +3,7 @@
 姓名判断 (dict)・周易 (dict)・タロット (TarotReading) の三結果を受け取り、
 鑑定書ドメインで扱える単一の DivinationTriplet に正規化する。
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -54,7 +55,9 @@ class TripleDivinationUseCase:
                     "number": d.card.number,
                     "is_reversed": d.is_reversed,
                     "keywords": list(d.card.keywords),
-                    "meaning": d.card.reversed_meaning if d.is_reversed else d.card.upright_meaning,
+                    "meaning": d.card.reversed_meaning
+                    if d.is_reversed
+                    else d.card.upright_meaning,
                 }
                 for d in reading.drawn_cards
             ],

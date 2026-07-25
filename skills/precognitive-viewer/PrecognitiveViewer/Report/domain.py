@@ -3,6 +3,7 @@
 Clean Architecture の最内層。標準ライブラリのみに依存し、frozen dataclass で不変性を確保する。
 日本語フィールド値は dataclass 標準の __repr__ で UTF-8 のまま可読に保持される。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -35,16 +36,12 @@ class TarotCard:
     def __post_init__(self) -> None:
         if self.arcana == "major":
             if not 0 <= self.number <= 21:
-                raise ValueError(
-                    f"大アルカナの番号は 0-21 の範囲、got {self.number}"
-                )
+                raise ValueError(f"大アルカナの番号は 0-21 の範囲、got {self.number}")
             if self.suit is not None:
                 raise ValueError("大アルカナにスート指定は不要")
         elif self.arcana == "minor":
             if not 1 <= self.number <= 14:
-                raise ValueError(
-                    f"小アルカナの番号は 1-14 の範囲、got {self.number}"
-                )
+                raise ValueError(f"小アルカナの番号は 1-14 の範囲、got {self.number}")
             if self.suit is None:
                 raise ValueError("小アルカナにはスート指定が必須")
 

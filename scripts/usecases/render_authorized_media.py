@@ -10,6 +10,7 @@ mime-routing は UseCase 側に閉じる:
 
 download 段階で skip された media（size 超過等）は render も skip。
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -40,7 +41,10 @@ _RENDER_MIME_EXACT = frozenset(
         "text/html",
     }
 )
-_TRANSCRIBE_MIME_PREFIXES = ("audio/", "video/")  # 音声・動画音声トラックを STT で transcript 化
+_TRANSCRIBE_MIME_PREFIXES = (
+    "audio/",
+    "video/",
+)  # 音声・動画音声トラックを STT で transcript 化
 
 
 @dataclass(frozen=True)

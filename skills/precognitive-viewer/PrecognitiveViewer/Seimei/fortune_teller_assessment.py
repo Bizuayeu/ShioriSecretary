@@ -13,39 +13,49 @@ from pathlib import Path
 JSONデータと結合して鑑定結果を生成します。
 """
 
+
 @dataclass
 class Character:
     """文字とその画数を保持するデータクラス"""
-    char: str        # 文字
-    strokes: int     # 画数
+
+    char: str  # 文字
+    strokes: int  # 画数
 
     def __repr__(self):
         return f"{self.char}({self.strokes}画)"
 
+
 @dataclass
 class NameComponents:
     """姓と名の文字情報と格納順を管理するデータクラス"""
-    surname: List[Character] = field(default_factory=list)     # 姓の文字リスト（順序保持）
-    given_name: List[Character] = field(default_factory=list)  # 名の文字リスト（順序保持）
+
+    surname: List[Character] = field(default_factory=list)  # 姓の文字リスト（順序保持）
+    given_name: List[Character] = field(
+        default_factory=list
+    )  # 名の文字リスト（順序保持）
+
 
 @dataclass
 class Frame:
     """各格（天格、地格など）の情報を保持するデータクラス"""
-    name: str                           # 格の名前（天格、地格など）
-    value: int                          # 格の数値
+
+    name: str  # 格の名前（天格、地格など）
+    value: int  # 格の数値
     spirit_number: Optional[int] = None  # 数霊番号（1-91）
     system_number: Optional[int] = None  # 系数（一の位）
     secret_number: Optional[int] = None  # 秘数（数字根）
-    system_star: Optional[str] = None   # 系数の星導（天体）
-    secret_star: Optional[str] = None   # 秘数の星導（天体）
-    fortune: Optional[str] = None       # 吉凶
-    meaning: Optional[str] = None       # 象意
-    ten_stems: Optional[str] = None     # 十干（甲乙丙丁戊己庚辛壬癸）
-    five_elements: Optional[str] = None # 五行（木火土金水）
+    system_star: Optional[str] = None  # 系数の星導（天体）
+    secret_star: Optional[str] = None  # 秘数の星導（天体）
+    fortune: Optional[str] = None  # 吉凶
+    meaning: Optional[str] = None  # 象意
+    ten_stems: Optional[str] = None  # 十干（甲乙丙丁戊己庚辛壬癸）
+    five_elements: Optional[str] = None  # 五行（木火土金水）
+
 
 @dataclass
 class SevenFrames:
     """七格すべてを管理するデータクラス"""
+
     天格: Frame  # 家系・先祖の運勢
     地格: Frame  # 幼少期・本質
     人格: Frame  # 才能・人格・意志の方向
@@ -56,21 +66,31 @@ class SevenFrames:
 
     def all_frames(self) -> List[Frame]:
         """すべての格をリストで返す"""
-        return [self.天格, self.地格, self.人格, self.総格, self.外格, self.雲格, self.底格]
+        return [
+            self.天格,
+            self.地格,
+            self.人格,
+            self.総格,
+            self.外格,
+            self.雲格,
+            self.底格,
+        ]
+
 
 @dataclass
 class StarDistribution:
     """星導（天体）の分布をカウントするデータクラス"""
-    太陽: int = 0     # 創造
-    月: int = 0       # 静寂
-    木星: int = 0     # 発展
-    天王星: int = 0   # 変化
-    水星: int = 0     # 調和
-    金星: int = 0     # 豊饒
-    海王星: int = 0   # 信念
-    土星: int = 0     # 忍耐
-    火星: int = 0     # 闘争
-    冥王星: int = 0   # 終末
+
+    太陽: int = 0  # 創造
+    月: int = 0  # 静寂
+    木星: int = 0  # 発展
+    天王星: int = 0  # 変化
+    水星: int = 0  # 調和
+    金星: int = 0  # 豊饒
+    海王星: int = 0  # 信念
+    土星: int = 0  # 忍耐
+    火星: int = 0  # 闘争
+    冥王星: int = 0  # 終末
 
     def to_dict(self) -> Dict[str, int]:
         """辞書形式で出力"""
@@ -84,12 +104,14 @@ class StarDistribution:
             "海王星": self.海王星,
             "土星": self.土星,
             "火星": self.火星,
-            "冥王星": self.冥王星
+            "冥王星": self.冥王星,
         }
+
 
 @dataclass
 class PersonnelTypes:
     """人材4類型の度数を管理するデータクラス"""
+
     軍人度: int = 0  # 火星+冥王星：危機的状況での決断者
     天才度: int = 0  # 天王星+海王星：創造的革新者
     秀才度: int = 0  # 太陽+木星+水星：平和的調整者
@@ -101,8 +123,9 @@ class PersonnelTypes:
             "軍人度": self.軍人度,
             "天才度": self.天才度,
             "秀才度": self.秀才度,
-            "凡人度": self.凡人度
+            "凡人度": self.凡人度,
         }
+
 
 class FortuneTellerAssessment:
     """七格剖象法による姓名判定を実行するメインクラス"""
@@ -121,10 +144,18 @@ class FortuneTellerAssessment:
             json_dir = Path(json_dir)
 
         # 各種JSONデータを読み込み
-        self.spirit_table = self._load_json(json_dir / "ここのそ数霊表.json")      # 数霊表（1-91の吉凶・象意）
-        self.star_guide = self._load_json(json_dir / "数理星導一覧.json")         # 数字と天体の対応表
-        self.five_elements = self._load_json(json_dir / "五気判定マトリックス.json")  # 五行相生相剋表
-        self.yin_yang = self._load_json(json_dir / "陰陽配列パターン.json")       # 陰陽配列の判定表
+        self.spirit_table = self._load_json(
+            json_dir / "ここのそ数霊表.json"
+        )  # 数霊表（1-91の吉凶・象意）
+        self.star_guide = self._load_json(
+            json_dir / "数理星導一覧.json"
+        )  # 数字と天体の対応表
+        self.five_elements = self._load_json(
+            json_dir / "五気判定マトリックス.json"
+        )  # 五行相生相剋表
+        self.yin_yang = self._load_json(
+            json_dir / "陰陽配列パターン.json"
+        )  # 陰陽配列の判定表
 
     def _load_json(self, filepath: Path) -> dict:
         """JSONファイルを読み込む
@@ -134,10 +165,16 @@ class FortuneTellerAssessment:
         Returns:
             読み込んだJSONデータ
         """
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def parse_name(self, surname: str, given_name: str, surname_strokes: List[int], given_strokes: List[int]) -> NameComponents:
+    def parse_name(
+        self,
+        surname: str,
+        given_name: str,
+        surname_strokes: List[int],
+        given_strokes: List[int],
+    ) -> NameComponents:
         """姓名を文字単位に分解して画数と共に格納
 
         Args:
@@ -157,12 +194,14 @@ class FortuneTellerAssessment:
             if i < len(surname_strokes):
                 # 画数リストから取得
                 strokes = surname_strokes[i]
-            elif char == '々' and i > 0:
+            elif char == "々" and i > 0:
                 # 「々」は前の文字の画数を引き継ぐ
-                strokes = components.surname[i-1].strokes if components.surname else 3
+                strokes = components.surname[i - 1].strokes if components.surname else 3
             else:
                 # 画数が不明な場合はエラー
-                raise ValueError(f"姓の文字「{char}」（{i+1}文字目）の画数が指定されていません。surname_strokes引数で画数を提供してください。")
+                raise ValueError(
+                    f"姓の文字「{char}」（{i + 1}文字目）の画数が指定されていません。surname_strokes引数で画数を提供してください。"
+                )
             components.surname.append(Character(char, strokes))
 
         # ===== 名の処理 =====
@@ -171,17 +210,23 @@ class FortuneTellerAssessment:
             if i < len(given_strokes):
                 # 画数リストから取得
                 strokes = given_strokes[i]
-            elif char == '々' and i > 0:
+            elif char == "々" and i > 0:
                 # 「々」は前の文字の画数を引き継ぐ
-                strokes = components.given_name[i-1].strokes if components.given_name else 3
+                strokes = (
+                    components.given_name[i - 1].strokes if components.given_name else 3
+                )
             else:
                 # 画数が不明な場合はエラー
-                raise ValueError(f"名の文字「{char}」（{i+1}文字目）の画数が指定されていません。given_strokes引数で画数を提供してください。")
+                raise ValueError(
+                    f"名の文字「{char}」（{i + 1}文字目）の画数が指定されていません。given_strokes引数で画数を提供してください。"
+                )
             components.given_name.append(Character(char, strokes))
 
         return components
 
-    def calculate_main_frames(self, components: NameComponents) -> Tuple[int, int, int, int, int]:
+    def calculate_main_frames(
+        self, components: NameComponents
+    ) -> Tuple[int, int, int, int, int]:
         """主要五格（天格・地格・人格・総格・外格）を計算
 
         主要五格では霊数を使用しない（霊数は雲格・底格のみで使用）
@@ -194,7 +239,9 @@ class FortuneTellerAssessment:
         """
         # 画数リストを作成
         surname_strokes = [c.strokes for c in components.surname]  # 例：[3, 9]
-        given_strokes = [c.strokes for c in components.given_name]  # 例：[5, 4, 9, 7, 16]
+        given_strokes = [
+            c.strokes for c in components.given_name
+        ]  # 例：[5, 4, 9, 7, 16]
 
         # ===== 天格の計算 =====
         # 姓の画数の合計（霊数なし）
@@ -225,7 +272,9 @@ class FortuneTellerAssessment:
 
         return 天格, 地格, 人格, 総格, 外格
 
-    def calculate_supplementary_frames(self, components: NameComponents, 総格: int) -> Tuple[int, int]:
+    def calculate_supplementary_frames(
+        self, components: NameComponents, 総格: int
+    ) -> Tuple[int, int]:
         """補助格（雲格・底格）を計算
 
         1字姓や1字名の場合に霊数1を加える複雑な計算を行う
@@ -339,16 +388,46 @@ class FortuneTellerAssessment:
         secret_number = spirit_info["秘数"] if spirit_info else None
 
         # 系数と秘数の星導を個別に取得
-        system_star = self.get_star_from_number(system_number) if system_number is not None else None
-        secret_star = self.get_star_from_number(secret_number) if secret_number is not None else None
+        system_star = (
+            self.get_star_from_number(system_number)
+            if system_number is not None
+            else None
+        )
+        secret_star = (
+            self.get_star_from_number(secret_number)
+            if secret_number is not None
+            else None
+        )
 
         # 系数から十干と五行を決定
         ten_stems = None
         five_elements = None
 
         if system_number is not None:
-            ten_stems_map = {0: "癸", 1: "甲", 2: "乙", 3: "丙", 4: "丁", 5: "戊", 6: "己", 7: "庚", 8: "辛", 9: "壬"}
-            five_elements_map = {0: "水", 1: "木", 2: "木", 3: "火", 4: "火", 5: "土", 6: "土", 7: "金", 8: "金", 9: "水"}
+            ten_stems_map = {
+                0: "癸",
+                1: "甲",
+                2: "乙",
+                3: "丙",
+                4: "丁",
+                5: "戊",
+                6: "己",
+                7: "庚",
+                8: "辛",
+                9: "壬",
+            }
+            five_elements_map = {
+                0: "水",
+                1: "木",
+                2: "木",
+                3: "火",
+                4: "火",
+                5: "土",
+                6: "土",
+                7: "金",
+                8: "金",
+                9: "水",
+            }
             ten_stems = ten_stems_map.get(system_number, "不明")
             five_elements = five_elements_map.get(system_number, "不明")
 
@@ -356,15 +435,17 @@ class FortuneTellerAssessment:
         frame = Frame(
             name=name,
             value=value,
-            spirit_number=value if value <= 91 else ((value - 1) % 90) + 1,  # 91超は循環
-            system_number=system_number,                                     # 一の位
-            secret_number=secret_number,                                     # 数字根
-            system_star=system_star,                                        # 系数の星導
-            secret_star=secret_star,                                        # 秘数の星導
-            fortune=spirit_info["吉凶"] if spirit_info else None,           # 吉凶判定
-            meaning=spirit_info["象意"] if spirit_info else None,           # 象意
-            ten_stems=ten_stems,                                            # 十干
-            five_elements=five_elements                                     # 五行
+            spirit_number=value
+            if value <= 91
+            else ((value - 1) % 90) + 1,  # 91超は循環
+            system_number=system_number,  # 一の位
+            secret_number=secret_number,  # 数字根
+            system_star=system_star,  # 系数の星導
+            secret_star=secret_star,  # 秘数の星導
+            fortune=spirit_info["吉凶"] if spirit_info else None,  # 吉凶判定
+            meaning=spirit_info["象意"] if spirit_info else None,  # 象意
+            ten_stems=ten_stems,  # 十干
+            five_elements=five_elements,  # 五行
         )
         return frame
 
@@ -391,7 +472,7 @@ class FortuneTellerAssessment:
             総格=self.create_frame("総格", 総格),
             外格=self.create_frame("外格", 外格),
             雲格=self.create_frame("雲格", 雲格),
-            底格=self.create_frame("底格", 底格)
+            底格=self.create_frame("底格", 底格),
         )
 
         return frames
@@ -417,16 +498,18 @@ class FortuneTellerAssessment:
                 # Frameに保存された系数星導を使用
                 star_name = frame.system_star.split("(")[0]
                 if hasattr(distribution, star_name):
-                    setattr(distribution, star_name,
-                           getattr(distribution, star_name) + 1)
+                    setattr(
+                        distribution, star_name, getattr(distribution, star_name) + 1
+                    )
 
             # ===== 秘数（数字根）の星導をカウント =====
             if frame.secret_star:
                 # Frameに保存された秘数星導を使用
                 star_name = frame.secret_star.split("(")[0]
                 if hasattr(distribution, star_name):
-                    setattr(distribution, star_name,
-                           getattr(distribution, star_name) + 1)
+                    setattr(
+                        distribution, star_name, getattr(distribution, star_name) + 1
+                    )
 
         return distribution
 
@@ -446,16 +529,16 @@ class FortuneTellerAssessment:
 
         # 天体と人材タイプの対応表
         personnel_map = {
-            "火星": "軍人度",      # 闘争
-            "冥王星": "軍人度",    # 終末
-            "天王星": "天才度",    # 変化
-            "海王星": "天才度",    # 信念
-            "太陽": "秀才度",      # 創造
-            "木星": "秀才度",      # 発展
-            "水星": "秀才度",      # 調和
-            "月": "凡人度",        # 静寂
-            "金星": "凡人度",      # 豊饒
-            "土星": "凡人度"       # 忍耐
+            "火星": "軍人度",  # 闘争
+            "冥王星": "軍人度",  # 終末
+            "天王星": "天才度",  # 変化
+            "海王星": "天才度",  # 信念
+            "太陽": "秀才度",  # 創造
+            "木星": "秀才度",  # 発展
+            "水星": "秀才度",  # 調和
+            "月": "凡人度",  # 静寂
+            "金星": "凡人度",  # 豊饒
+            "土星": "凡人度",  # 忍耐
         }
 
         # 各格の星導から人材タイプを集計
@@ -481,7 +564,13 @@ class FortuneTellerAssessment:
 
         return types
 
-    def assess(self, surname: str, given_name: str, surname_strokes: List[int], given_strokes: List[int]) -> Dict:
+    def assess(
+        self,
+        surname: str,
+        given_name: str,
+        surname_strokes: List[int],
+        given_strokes: List[int],
+    ) -> Dict:
         """姓名判定のメインメソッド
 
         姓名と画数を受け取り、七格剖象法による鑑定結果を返す
@@ -496,7 +585,9 @@ class FortuneTellerAssessment:
             鑑定結果の辞書（七格、星導分布、人材4類型など）
         """
         # ===== Step 1: 姓名を文字単位に分解 =====
-        components = self.parse_name(surname, given_name, surname_strokes, given_strokes)
+        components = self.parse_name(
+            surname, given_name, surname_strokes, given_strokes
+        )
 
         # ===== Step 2: 七格を計算してJSONデータと結合 =====
         frames = self.calculate_seven_frames(components)
@@ -511,33 +602,40 @@ class FortuneTellerAssessment:
         result = {
             # 姓の文字と画数（①大: 3, ②神: 9 のような形式）
             "姓": {
-                f"{chr(0x2460 + i)}{c.char}": c.strokes for i, c in enumerate(components.surname)
+                f"{chr(0x2460 + i)}{c.char}": c.strokes
+                for i, c in enumerate(components.surname)
             },
             # 名の文字と画数（①加: 5, ②五: 4... のような形式）
             "名": {
-                f"{chr(0x2460 + i)}{c.char}": c.strokes for i, c in enumerate(components.given_name)
+                f"{chr(0x2460 + i)}{c.char}": c.strokes
+                for i, c in enumerate(components.given_name)
             },
             # 七格すべての詳細情報
             "七格": {
                 frame.name: {
-                    "数": frame.value,            # 格の数値
+                    "数": frame.value,  # 格の数値
                     "数霊": frame.spirit_number,  # 数霊番号（1-91）
                     "系数": frame.system_number,  # 系数（一の位）
                     "秘数": frame.secret_number,  # 秘数（数字根）
-                    "系数星導": frame.system_star.split("(")[0] if frame.system_star else None,  # 系数の星導名のみ
-                    "秘数星導": frame.secret_star.split("(")[0] if frame.secret_star else None,  # 秘数の星導名のみ
+                    "系数星導": frame.system_star.split("(")[0]
+                    if frame.system_star
+                    else None,  # 系数の星導名のみ
+                    "秘数星導": frame.secret_star.split("(")[0]
+                    if frame.secret_star
+                    else None,  # 秘数の星導名のみ
                     "系数星導＋象意": frame.system_star,  # 系数の星導（象意付き）
                     "秘数星導＋象意": frame.secret_star,  # 秘数の星導（象意付き）
-                    "吉凶": frame.fortune,        # 吉凶判定
-                    "象意": frame.meaning,        # 象意
-                    "十干": frame.ten_stems,      # 十干
-                    "五行": frame.five_elements   # 五行
-                } for frame in frames.all_frames()
+                    "吉凶": frame.fortune,  # 吉凶判定
+                    "象意": frame.meaning,  # 象意
+                    "十干": frame.ten_stems,  # 十干
+                    "五行": frame.five_elements,  # 五行
+                }
+                for frame in frames.all_frames()
             },
             # 星導分布（10天体ごとの出現回数）
             "星導分布": star_distribution.to_dict(),
             # 人材4類型（軍人・天才・秀才・凡人の度数）
-            "人材4類型": personnel_types.to_dict()
+            "人材4類型": personnel_types.to_dict(),
         }
 
         return result
@@ -577,7 +675,9 @@ def main():
     print("2. Claude対話内でこのスクリプトをインポート：")
     print("   import sys")
     print("   from pathlib import Path")
-    print("   # スキルルート（skills/precognitive-viewer）を path に追加し bootstrap を import")
+    print(
+        "   # スキルルート（skills/precognitive-viewer）を path に追加し bootstrap を import"
+    )
     print("   sys.path.insert(0, str(Path('skills/precognitive-viewer').resolve()))")
     print("   import PrecognitiveViewer  # bootstrap が Seimei/ を sys.path に追加")
     print("   from fortune_teller_assessment import FortuneTellerAssessment")
@@ -595,5 +695,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

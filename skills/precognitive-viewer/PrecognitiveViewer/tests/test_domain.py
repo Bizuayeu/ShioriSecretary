@@ -7,6 +7,7 @@
 
 加えて、`__post_init__` の不変条件・日本語 repr の可読性も補強的に検証する。
 """
+
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
@@ -156,7 +157,7 @@ def test_spread_definition_card_count() -> None:
     """SpreadDefinition.card_count は positions の長さと一致"""
     spread = SpreadDefinition(
         name="ケルト十字",
-        positions=tuple(f"位置{i+1}" for i in range(10)),
+        positions=tuple(f"位置{i + 1}" for i in range(10)),
         focus="包括的分析",
     )
     assert spread.card_count == 10

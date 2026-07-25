@@ -64,6 +64,13 @@ dev = [
 # 複数トップレベルパッケージと誤検出し、`pip install -e .` がビルド失敗する。
 packages = []
 
+[tool.ruff]
+# ruff 0.16 以降は Markdown 内の ```python コードブロックも整形・検査の対象に含む。
+# 本リポの .md は配布ドキュメント（日英 README / SKILL / 占術仕様書）であり、
+# 例示コードを 88 桁で折り返すと読み物としての可読性が落ちるため対象から外す。
+# 整形の対象は Python ソースのみ、というのが本リポの方針（CI もこの設定で検査する）。
+extend-exclude = ["*.md"]
+
 [tool.pytest.ini_options]
 # skills/precognitive-viewer は同梱スキル（独立パッケージ）のテストも信頼性の証拠として公開する。
 # pythonpath に skill ルートを足すことで `PrecognitiveViewer.*` 絶対 import が解決し、

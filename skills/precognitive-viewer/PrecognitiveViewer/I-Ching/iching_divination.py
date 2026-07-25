@@ -29,10 +29,10 @@ class IChingDivination:
             current_dir = Path(__file__).parent
             database_path = current_dir / "大卦データベース.json"
 
-        with open(database_path, 'r', encoding='utf-8') as f:
+        with open(database_path, "r", encoding="utf-8") as f:
             self.database = json.load(f)
 
-        self.hexagrams = self.database['hexagrams']
+        self.hexagrams = self.database["hexagrams"]
 
     def get_hexagram_number(self, divination_question: str, context: str) -> int:
         """
@@ -53,7 +53,7 @@ class IChingDivination:
         complete_question = f"{divination_question}\n===状況整理===\n{context}"
 
         # UTF-8エンコード → BASE64
-        encoded = base64.b64encode(complete_question.encode('utf-8'))
+        encoded = base64.b64encode(complete_question.encode("utf-8"))
 
         # SHA256でハッシュ化（安定した分散を得るため）
         hash_value = hashlib.sha256(encoded).hexdigest()
@@ -124,10 +124,12 @@ class IChingDivination:
         """
         hexagram = self.get_hexagram_data(hexagram_number)
         # 爻番号も1始まり、配列は0始まり
-        line = hexagram['爻'][line_number - 1]
+        line = hexagram["爻"][line_number - 1]
         return line
 
-    def divine(self, divination_question: str, context: str, timestamp: Optional[float] = None) -> Dict[str, Any]:
+    def divine(
+        self, divination_question: str, context: str, timestamp: Optional[float] = None
+    ) -> Dict[str, Any]:
         """
         占断を実行
 
@@ -180,20 +182,20 @@ class IChingDivination:
         line_data = self.get_line_data(hexagram_number, line_number)
 
         # 八卦の分析（バイナリ表現から上卦・下卦を導出）
-        binary = hexagram_data['バイナリ']
+        binary = hexagram_data["バイナリ"]
         upper_trigram = binary[:3]  # 上卦（上位3ビット）
         lower_trigram = binary[3:]  # 下卦（下位3ビット）
 
         # 八卦の対応表
         trigrams = {
-            '111': {'名前': '乾', '象意': '天', '性質': '剛健'},
-            '110': {'名前': '兌', '象意': '沢', '性質': '悦楽'},
-            '101': {'名前': '離', '象意': '火', '性質': '明智'},
-            '100': {'名前': '震', '象意': '雷', '性質': '震動'},
-            '011': {'名前': '巽', '象意': '風', '性質': '柔順'},
-            '010': {'名前': '坎', '象意': '水', '性質': '険難'},
-            '001': {'名前': '艮', '象意': '山', '性質': '静止'},
-            '000': {'名前': '坤', '象意': '地', '性質': '柔順'}
+            "111": {"名前": "乾", "象意": "天", "性質": "剛健"},
+            "110": {"名前": "兌", "象意": "沢", "性質": "悦楽"},
+            "101": {"名前": "離", "象意": "火", "性質": "明智"},
+            "100": {"名前": "震", "象意": "雷", "性質": "震動"},
+            "011": {"名前": "巽", "象意": "風", "性質": "柔順"},
+            "010": {"名前": "坎", "象意": "水", "性質": "険難"},
+            "001": {"名前": "艮", "象意": "山", "性質": "静止"},
+            "000": {"名前": "坤", "象意": "地", "性質": "柔順"},
         }
 
         upper_trigram_data = trigrams.get(upper_trigram, {})
@@ -201,28 +203,28 @@ class IChingDivination:
 
         # 結果を構造化
         result = {
-            '占機': {
-                '日時': divination_time.strftime('%Y年%m月%d日 %H時%M分%S秒'),
-                'タイムスタンプ': timestamp
+            "占機": {
+                "日時": divination_time.strftime("%Y年%m月%d日 %H時%M分%S秒"),
+                "タイムスタンプ": timestamp,
             },
-            '占的': divination_question,
-            '状況整理': context,
-            '得卦': {
-                '番号': hexagram_number,
-                '名前': hexagram_data['名前'],
-                '読み': hexagram_data['読み'],
-                'シンボル': hexagram_data['シンボル'],
-                'バイナリ': hexagram_data['バイナリ'],
-                '卦辞': hexagram_data['卦辞'],
-                '上卦': upper_trigram_data,
-                '下卦': lower_trigram_data
+            "占的": divination_question,
+            "状況整理": context,
+            "得卦": {
+                "番号": hexagram_number,
+                "名前": hexagram_data["名前"],
+                "読み": hexagram_data["読み"],
+                "シンボル": hexagram_data["シンボル"],
+                "バイナリ": hexagram_data["バイナリ"],
+                "卦辞": hexagram_data["卦辞"],
+                "上卦": upper_trigram_data,
+                "下卦": lower_trigram_data,
             },
-            '得爻': {
-                '番号': line_number,
-                '名前': line_data['名前'],
-                '陰陽': line_data['陰陽'],
-                '爻辞': line_data['爻辞']
-            }
+            "得爻": {
+                "番号": line_number,
+                "名前": line_data["名前"],
+                "陰陽": line_data["陰陽"],
+                "爻辞": line_data["爻辞"],
+            },
         }
 
         return result
@@ -245,21 +247,25 @@ class IChingDivination:
         lines.append(f"占的：{result['占的']}")
         lines.append("")
 
-        得卦 = result['得卦']
+        得卦 = result["得卦"]
         lines.append(f"【得卦】{得卦['番号']}. {得卦['名前']}（{得卦['読み']}）")
         lines.append(f"シンボル：{得卦['シンボル']}")
         lines.append(f"バイナリ：{得卦['バイナリ']}")
 
-        if 得卦['上卦']:
-            lines.append(f"上卦：{得卦['上卦']['名前']}（{得卦['上卦']['象意']}）- {得卦['上卦']['性質']}")
-        if 得卦['下卦']:
-            lines.append(f"下卦：{得卦['下卦']['名前']}（{得卦['下卦']['象意']}）- {得卦['下卦']['性質']}")
+        if 得卦["上卦"]:
+            lines.append(
+                f"上卦：{得卦['上卦']['名前']}（{得卦['上卦']['象意']}）- {得卦['上卦']['性質']}"
+            )
+        if 得卦["下卦"]:
+            lines.append(
+                f"下卦：{得卦['下卦']['名前']}（{得卦['下卦']['象意']}）- {得卦['下卦']['性質']}"
+            )
 
         lines.append("")
         lines.append(f"卦辞：{得卦['卦辞']}")
         lines.append("")
 
-        得爻 = result['得爻']
+        得爻 = result["得爻"]
         lines.append(f"【得爻】第{得爻['番号']}爻 - {得爻['名前']}（{得爻['陰陽']}）")
         lines.append(f"爻辞：{得爻['爻辞']}")
         lines.append("=" * 60)
@@ -273,7 +279,9 @@ def main():
     print("WARNING: Direct Execution Mode / 警告：直接実行モード")
     print("=" * 80)
     print()
-    print("このスクリプトを正しく使用するには、先に以下のドキュメントを必ずお読みください：")
+    print(
+        "このスクリプトを正しく使用するには、先に以下のドキュメントを必ずお読みください："
+    )
     print()
     print("1. デジタル心易システム仕様.md")
     print("   場所: ./（相対パス）")
@@ -291,7 +299,9 @@ def main():
     print()
     print(">>> import sys")
     print(">>> from pathlib import Path")
-    print(">>> # スキルルート（skills/precognitive-viewer）を path に追加し bootstrap を import")
+    print(
+        ">>> # スキルルート（skills/precognitive-viewer）を path に追加し bootstrap を import"
+    )
     print(">>> sys.path.insert(0, str(Path('skills/precognitive-viewer').resolve()))")
     print(">>> import PrecognitiveViewer  # bootstrap が I-Ching/ を sys.path に追加")
     print(">>> from iching_divination import IChingDivination")

@@ -7,6 +7,7 @@
 
 加えてスート別カウント・スプレッド数・大小アルカナ数を補強的に検証する。
 """
+
 from __future__ import annotations
 
 from collections import Counter
@@ -56,10 +57,9 @@ def test_tarot_repository_all_cards_have_japanese_name() -> None:
     repo = TarotCardRepository()
     for card in repo.load_all():
         # 名前にひらがな・カタカナ・漢字のいずれかを含む
-        assert any(
-            "぀" <= ch <= "ヿ" or "一" <= ch <= "鿿"
-            for ch in card.name
-        ), f"日本語名が見当たらない: {card.id} / {card.name}"
+        assert any("぀" <= ch <= "ヿ" or "一" <= ch <= "鿿" for ch in card.name), (
+            f"日本語名が見当たらない: {card.id} / {card.name}"
+        )
 
 
 # ----------------------------------------------------------------------------

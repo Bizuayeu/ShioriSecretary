@@ -4,6 +4,7 @@ conftest.py は pytest 起動時のみ実行されるため、Skill として直
 （Claude が `python -c '...'` で実行する等）では `__init__.py` 側の bootstrap が
 担保となる。この経路を subprocess で外部 Python プロセスとして実行し検証する。
 """
+
 from __future__ import annotations
 
 import subprocess

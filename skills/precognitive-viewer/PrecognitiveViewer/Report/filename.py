@@ -3,6 +3,7 @@
 `ReadingReport_yyyymmdd_hhmmss.md` 形式。被鑑定者名はファイル名に含めず
 タイムスタンプベースでユニーク性を確保（プライバシー配慮）。
 """
+
 from __future__ import annotations
 
 from datetime import datetime

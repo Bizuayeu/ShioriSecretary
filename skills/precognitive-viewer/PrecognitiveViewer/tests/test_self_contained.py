@@ -5,6 +5,7 @@
 この境界が破れると「占いスキルを消すと秘書が壊れる／占いが外部に PII を送る」が
 起こり得るため、許可外 import の混入を構造的に検出する。
 """
+
 from __future__ import annotations
 
 import re
@@ -49,4 +50,6 @@ def test_no_legacy_repo_paths_in_code():
     """旧リポ前提のパス案内（Expertises/ForesightReader 経由）がコードに残っていない。"""
     for src in _all_package_sources():
         text = src.read_text(encoding="utf-8")
-        assert "Expertises/CorporateStrategist" not in text, f"legacy path in {src.name}"
+        assert "Expertises/CorporateStrategist" not in text, (
+            f"legacy path in {src.name}"
+        )

@@ -4,6 +4,7 @@
 具体的な解釈・物語化はテンプレ内コメント `<!-- LLM 補完 -->` で明示し、
 Claude が実行時に上書きする設計。
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -88,7 +89,9 @@ class ReadingReportComposerUseCase:
             dominant_display = dominant_key.replace("度", "型")
             lines.append(f"\n**主導類型**：{dominant_display}")
 
-        lines.append("\n<!-- LLM 補完：星導・数霊・十干を踏まえた人物像の本質、強みと資質を、純粋エネルギー論の語彙で記述。慎みを保ちつつ相手の尊厳を尊重 -->")
+        lines.append(
+            "\n<!-- LLM 補完：星導・数霊・十干を踏まえた人物像の本質、強みと資質を、純粋エネルギー論の語彙で記述。慎みを保ちつつ相手の尊厳を尊重 -->"
+        )
 
         return "\n".join(lines)
 
@@ -143,7 +146,9 @@ class ReadingReportComposerUseCase:
             if yt:
                 lines.append(f"**爻辞**\n\n> {yt}")
 
-        lines.append("\n<!-- LLM 補完：卦辞・爻辞の和訳と現代的解釈、現況分析、展開予測、時機判断、行動の指針を記述 -->")
+        lines.append(
+            "\n<!-- LLM 補完：卦辞・爻辞の和訳と現代的解釈、現況分析、展開予測、時機判断、行動の指針を記述 -->"
+        )
 
         return "\n".join(lines)
 
@@ -185,7 +190,9 @@ class ReadingReportComposerUseCase:
                     lines.append(f"- 意味：{meaning}")
                 lines.append("")
 
-        lines.append("<!-- LLM 補完：各位置のカードを物語として読み解き、全体の流れを記述。純粋エネルギー論の語彙で（凶札という発想を採らない） -->")
+        lines.append(
+            "<!-- LLM 補完：各位置のカードを物語として読み解き、全体の流れを記述。純粋エネルギー論の語彙で（凶札という発想を採らない） -->"
+        )
 
         return "\n".join(lines)
 
@@ -198,16 +205,24 @@ class ReadingReportComposerUseCase:
         lines: list[str] = []
 
         lines.append("### 共通テーマ\n")
-        lines.append("<!-- LLM 補完：三占術が共通して指し示す核心を 2-3 段落で記述。相術と卜術が同じ方向を指す場合は強い示唆として明示 -->\n")
+        lines.append(
+            "<!-- LLM 補完：三占術が共通して指し示す核心を 2-3 段落で記述。相術と卜術が同じ方向を指す場合は強い示唆として明示 -->\n"
+        )
 
         lines.append("### 補完関係（相術が示す本質と、卜術が照らす時機）\n")
-        lines.append("<!-- LLM 補完：姓名判断（相術＝本質）と易・タロット（卜術＝時機）が異なる側面で明らかにする要素を統合的に記述 -->\n")
+        lines.append(
+            "<!-- LLM 補完：姓名判断（相術＝本質）と易・タロット（卜術＝時機）が異なる側面で明らかにする要素を統合的に記述 -->\n"
+        )
 
         lines.append("### 強みと活用の指針\n")
-        lines.append("<!-- LLM 補完：純粋エネルギー論に基づく肯定的解釈。「凶」を「高難度エネルギー」「活用の鍵」として記述。相手を喜ばせる発見を含める -->\n")
+        lines.append(
+            "<!-- LLM 補完：純粋エネルギー論に基づく肯定的解釈。「凶」を「高難度エネルギー」「活用の鍵」として記述。相手を喜ばせる発見を含める -->\n"
+        )
 
         lines.append("### 時機と行動の助言\n")
-        lines.append("<!-- LLM 補完：易卦の時機判断 + タロットの流れの質感を統合し、具体的行動指針を提示。断言を避け、選択の余地を残す -->\n")
+        lines.append(
+            "<!-- LLM 補完：易卦の時機判断 + タロットの流れの質感を統合し、具体的行動指針を提示。断言を避け、選択の余地を残す -->\n"
+        )
 
         return "\n".join(lines)
 
@@ -218,7 +233,9 @@ class ReadingReportComposerUseCase:
     def _build_closing_message(self, recipient: Recipient) -> str:
         """祝福と慎みを含む結びの言葉の骨格を構築する"""
         lines: list[str] = []
-        lines.append("<!-- LLM 補完：被鑑定者への祝福と励まし。三占術が示した本質と時機を踏まえた一人称の言葉 -->\n")
+        lines.append(
+            "<!-- LLM 補完：被鑑定者への祝福と励まし。三占術が示した本質と時機を踏まえた一人称の言葉 -->\n"
+        )
         lines.append(
             "*本鑑定は、占術という古典的な観取の技法に基づく**参考情報**です。"
             "あなたの人生の選択は、いつもご自身の自由意志によるものです。"

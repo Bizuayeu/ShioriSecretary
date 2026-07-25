@@ -6,6 +6,7 @@
 - test_tarot_celtic_cross_returns_10_cards
 - test_triple_divination_synthesis_preserves_all_three
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -149,10 +150,15 @@ def test_tarot_unknown_spread_raises() -> None:
 
 def test_triple_divination_synthesis_preserves_all_three() -> None:
     """DivinationTriplet が三 Summary をロスなく保持する"""
-    seimei = {"七格": {"人格": {"数": 10}}, "人材4類型": {"軍人": 5, "天才": 4, "秀才": 5, "凡人": 4}}
+    seimei = {
+        "七格": {"人格": {"数": 10}},
+        "人材4類型": {"軍人": 5, "天才": 4, "秀才": 5, "凡人": 4},
+    }
     iching = {"得卦": {"番号": 1, "名前": "乾為天"}, "得爻": {"番号": 5}}
     tarot_reading = TarotReading(
-        spread=SpreadDefinition(name="single_card", positions=("核心",), focus="一枚で観る"),
+        spread=SpreadDefinition(
+            name="single_card", positions=("核心",), focus="一枚で観る"
+        ),
         drawn_cards=(
             DrawnCard(
                 card=TarotCard(

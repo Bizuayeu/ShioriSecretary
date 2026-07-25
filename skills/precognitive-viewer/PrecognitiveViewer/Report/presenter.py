@@ -10,6 +10,7 @@
 7. 第四章：三位統合所見
 8. 結びの言葉
 """
+
 from __future__ import annotations
 
 from PrecognitiveViewer.Report.domain import ReadingReport
@@ -23,13 +24,17 @@ class ReadingReportPresenter:
     """
 
     def __init__(self, examiner: str | None = None) -> None:
-        self._examiner = f"{examiner}（PrecognitiveViewer）" if examiner else "PrecognitiveViewer"
+        self._examiner = (
+            f"{examiner}（PrecognitiveViewer）" if examiner else "PrecognitiveViewer"
+        )
 
     def render(self, report: ReadingReport) -> str:
         """章節構成に従ってフォーマル鑑定書を Markdown 文字列で返す。"""
         ts = report.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         recipient = report.recipient
-        context_line = f"- 鑑定の文脈：{recipient.context}\n" if recipient.context else ""
+        context_line = (
+            f"- 鑑定の文脈：{recipient.context}\n" if recipient.context else ""
+        )
 
         sections = [
             "# 三位占術 鑑定書\n",

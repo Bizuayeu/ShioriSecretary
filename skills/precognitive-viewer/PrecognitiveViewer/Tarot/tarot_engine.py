@@ -4,6 +4,7 @@ I-Ching と同じく BASE64+SHA256 シードによる Fisher-Yates シャッフ�
 データは tarot_cards.json / tarot_spreads.json から読み込む。
 出典は tarot-mcp (MIT License、abdul-hamid-achik/tarot-mcp)。詳細は LICENSE.md 参照。
 """
+
 from __future__ import annotations
 
 import base64
@@ -96,11 +97,13 @@ class DeterministicShuffler:
     def _make_seed(question: str, context: str, timestamp: float) -> bytes:
         """占的・状況・占機を BASE64+SHA256 で混和したシードを生成"""
         ts_str = f"{timestamp:.6f}"
-        payload = "|".join([
-            base64.b64encode(question.encode("utf-8")).decode("ascii"),
-            base64.b64encode(context.encode("utf-8")).decode("ascii"),
-            base64.b64encode(ts_str.encode("utf-8")).decode("ascii"),
-        ])
+        payload = "|".join(
+            [
+                base64.b64encode(question.encode("utf-8")).decode("ascii"),
+                base64.b64encode(context.encode("utf-8")).decode("ascii"),
+                base64.b64encode(ts_str.encode("utf-8")).decode("ascii"),
+            ]
+        )
         return hashlib.sha256(payload.encode("ascii")).digest()
 
     def _fisher_yates(self, seed: bytes, n: int) -> list[int]:
@@ -116,7 +119,7 @@ class DeterministicShuffler:
         # Fisher-Yates：末尾から、ストリームから 4 バイト読んで index 決定
         for i in range(self.DECK_SIZE - 1, 0, -1):
             offset = (self.DECK_SIZE - 1 - i) * 4
-            r = int.from_bytes(stream[offset:offset + 4], "big")
+            r = int.from_bytes(stream[offset : offset + 4], "big")
             j = r % (i + 1)
             deck[i], deck[j] = deck[j], deck[i]
 
