@@ -8,7 +8,6 @@ Claude が実行時に上書きする設計。
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from PrecognitiveViewer.Report.domain import (
     DivinationTriplet,

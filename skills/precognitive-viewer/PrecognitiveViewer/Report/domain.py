@@ -6,7 +6,7 @@ Clean Architecture の最内層。標準ライブラリのみに依存し、froz
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Optional
 

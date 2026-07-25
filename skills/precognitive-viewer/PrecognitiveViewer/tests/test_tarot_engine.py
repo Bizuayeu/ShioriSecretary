@@ -12,8 +12,6 @@ from __future__ import annotations
 
 from collections import Counter
 
-import pytest
-
 from PrecognitiveViewer.Tarot.tarot_engine import (
     DeterministicShuffler,
     SpreadRepository,

@@ -12,7 +12,6 @@ from typing import Optional
 from PrecognitiveViewer.Report.domain import (
     DrawnCard,
     SpreadDefinition,
-    TarotCard,
     TarotReading,
 )
 from PrecognitiveViewer.Tarot.tarot_engine import (
