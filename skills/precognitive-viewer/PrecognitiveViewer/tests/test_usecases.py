@@ -20,11 +20,11 @@ from PrecognitiveViewer.Report.domain import (
     TarotCard,
     TarotReading,
 )
-from PrecognitiveViewer.Report.seimei_usecase import (
-    SeimeiAssessmentUseCase,
-)
 from PrecognitiveViewer.Report.iching_usecase import (
     IChingDivinationUseCase,
+)
+from PrecognitiveViewer.Report.seimei_usecase import (
+    SeimeiAssessmentUseCase,
 )
 from PrecognitiveViewer.Report.tarot_usecase import (
     TarotReadingUseCase,
@@ -32,7 +32,6 @@ from PrecognitiveViewer.Report.tarot_usecase import (
 from PrecognitiveViewer.Report.triple_divination import (
     TripleDivinationUseCase,
 )
-
 
 # ----------------------------------------------------------------------------
 # Seimei UseCase

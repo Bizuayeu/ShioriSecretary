@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 # conftest.py で sys.path に Seimei/ が追加されている
 from fortune_teller_assessment import FortuneTellerAssessment
@@ -15,7 +15,7 @@ from fortune_teller_assessment import FortuneTellerAssessment
 class SeimeiAssessmentUseCase:
     """姓名判断 UseCase。既存エンジンをラップし、UseCase 層 API を提供する。"""
 
-    def __init__(self, assessor: Optional[FortuneTellerAssessment] = None) -> None:
+    def __init__(self, assessor: FortuneTellerAssessment | None = None) -> None:
         self._assessor = assessor or FortuneTellerAssessment()
 
     def assess(

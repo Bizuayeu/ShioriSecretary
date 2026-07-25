@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 周易占断システム - I-Ching Divination Engine
 占的と占機から64卦384爻を導き出す計算エンジン
 """
 
-import json
 import base64
 import hashlib
+import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 
 class IChingDivination:
     """周易占断クラス"""
 
-    def __init__(self, database_path: Optional[str] = None):
+    def __init__(self, database_path: str | None = None):
         """
         初期化
 
@@ -29,7 +28,7 @@ class IChingDivination:
             current_dir = Path(__file__).parent
             database_path = current_dir / "大卦データベース.json"
 
-        with open(database_path, "r", encoding="utf-8") as f:
+        with open(database_path, encoding="utf-8") as f:
             self.database = json.load(f)
 
         self.hexagrams = self.database["hexagrams"]
@@ -76,7 +75,7 @@ class IChingDivination:
 
         return number
 
-    def get_line_number(self, timestamp: Optional[float] = None) -> int:
+    def get_line_number(self, timestamp: float | None = None) -> int:
         """
         タイムスタンプから爻番号（1-6）を決定
 
@@ -97,7 +96,7 @@ class IChingDivination:
 
         return line_number
 
-    def get_hexagram_data(self, hexagram_number: int) -> Dict[str, Any]:
+    def get_hexagram_data(self, hexagram_number: int) -> dict[str, Any]:
         """
         卦番号から卦データを取得
 
@@ -111,7 +110,7 @@ class IChingDivination:
         hexagram = self.hexagrams[hexagram_number - 1]
         return hexagram
 
-    def get_line_data(self, hexagram_number: int, line_number: int) -> Dict[str, Any]:
+    def get_line_data(self, hexagram_number: int, line_number: int) -> dict[str, Any]:
         """
         卦番号と爻番号から爻データを取得
 
@@ -128,8 +127,8 @@ class IChingDivination:
         return line
 
     def divine(
-        self, divination_question: str, context: str, timestamp: Optional[float] = None
-    ) -> Dict[str, Any]:
+        self, divination_question: str, context: str, timestamp: float | None = None
+    ) -> dict[str, Any]:
         """
         占断を実行
 
@@ -229,7 +228,7 @@ class IChingDivination:
 
         return result
 
-    def format_result(self, result: Dict[str, Any]) -> str:
+    def format_result(self, result: dict[str, Any]) -> str:
         """
         占断結果を読みやすい形式に整形
 

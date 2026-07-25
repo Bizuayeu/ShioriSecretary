@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 ArcanaType = Literal["major", "minor"]
 SuitType = Literal["wands", "cups", "swords", "pentacles"]
@@ -29,9 +29,9 @@ class TarotCard:
     keywords: tuple[str, ...]
     upright_meaning: str
     reversed_meaning: str
-    suit: Optional[SuitType] = None
-    element: Optional[str] = None
-    astrology: Optional[str] = None
+    suit: SuitType | None = None
+    element: str | None = None
+    astrology: str | None = None
 
     def __post_init__(self) -> None:
         if self.arcana == "major":
@@ -102,7 +102,7 @@ class Recipient:
 
     full_name: str
     reading: str
-    context: Optional[str] = None
+    context: str | None = None
 
 
 @dataclass(frozen=True)

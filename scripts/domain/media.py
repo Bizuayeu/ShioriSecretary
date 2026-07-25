@@ -7,8 +7,9 @@ MediaAttachment.file_name と RenderedMedia 値オブジェクトも持つ。
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, List, Mapping, Optional, Sequence
+from typing import Any
 
 # render_status の許容値（Domain で構造的に保証）
 _VALID_RENDER_STATUSES = frozenset({"ok", "passthrough", "skipped", "failed"})
@@ -22,12 +23,12 @@ class MediaAttachment:
     file_id: str
     mime_type: str
     size: int
-    file_name: Optional[str] = None  # document の元ファイル名（エージェントの判断材料）
+    file_name: str | None = None  # document の元ファイル名（エージェントの判断材料）
 
     @classmethod
     def from_photo_api(
         cls, photo_array: Sequence[Mapping[str, Any]]
-    ) -> Optional["MediaAttachment"]:
+    ) -> MediaAttachment | None:
         """Telegram の photo 配列（複数解像度）から最大解像度を抽出。
 
         Telegram API 仕様で配列末尾が最大解像度。空配列なら None を返す。
@@ -44,7 +45,7 @@ class MediaAttachment:
         )
 
     @classmethod
-    def from_document_api(cls, document: Mapping[str, Any]) -> "MediaAttachment":
+    def from_document_api(cls, document: Mapping[str, Any]) -> MediaAttachment:
         """Telegram の document から MediaAttachment を構築。
 
         mime_type 欠落時は application/octet-stream にフォールバック。
@@ -59,7 +60,7 @@ class MediaAttachment:
         )
 
     @classmethod
-    def from_voice_api(cls, voice: Mapping[str, Any]) -> "MediaAttachment":
+    def from_voice_api(cls, voice: Mapping[str, Any]) -> MediaAttachment:
         """Telegram の voice（ボイスメモ）から構築。
 
         voice は常に OGG/OPUS。mime 欠落時は audio/ogg にフォールバック。
@@ -73,7 +74,7 @@ class MediaAttachment:
         )
 
     @classmethod
-    def from_audio_api(cls, audio: Mapping[str, Any]) -> "MediaAttachment":
+    def from_audio_api(cls, audio: Mapping[str, Any]) -> MediaAttachment:
         """Telegram の audio（音楽ファイル）から構築。
 
         mime 欠落時は audio/mpeg（mp3 が最頻、audio/* prefix で routing 可能）。
@@ -88,7 +89,7 @@ class MediaAttachment:
         )
 
     @classmethod
-    def from_video_api(cls, video: Mapping[str, Any]) -> "MediaAttachment":
+    def from_video_api(cls, video: Mapping[str, Any]) -> MediaAttachment:
         """Telegram の video（mp4）から構築。
 
         mime 欠落時は video/mp4。video は file_name を持ち得る。
@@ -102,7 +103,7 @@ class MediaAttachment:
         )
 
     @classmethod
-    def from_video_note_api(cls, video_note: Mapping[str, Any]) -> "MediaAttachment":
+    def from_video_note_api(cls, video_note: Mapping[str, Any]) -> MediaAttachment:
         """Telegram の video_note（丸いビデオメッセージ）から構築。
 
         video_note は mime_type / file_name フィールドを持たず常に mp4。
@@ -126,15 +127,15 @@ class RenderedMedia:
     - "failed": render を試みたが内部例外発生、エージェントに正直に伝える
     """
 
-    rendered_text: Optional[str]
+    rendered_text: str | None
     render_status: str
     # 画像 PDF の派生ページ画像パス（動画 key frame と相乗りする共通基盤）。
     # str パスのみ保持し bytes は持たない（純粋性維持、MediaAttachment の identifier-only 方針と同型）。
     # 非画像 PDF・テキスト PDF・非 PDF は空 list（欠落≠未対応の明示、media:[] と同規律）。
-    derived_image_paths: List[str] = field(default_factory=list)
+    derived_image_paths: list[str] = field(default_factory=list)
     # PDF の総ページ数（両経路共通メタ）。エージェントが総量を把握して段階 Vision を判断する材料。
     # PDF 以外は None（後方互換）。
-    page_count: Optional[int] = None
+    page_count: int | None = None
 
     def __post_init__(self) -> None:
         if self.render_status not in _VALID_RENDER_STATUSES:
@@ -144,7 +145,7 @@ class RenderedMedia:
             )
 
 
-def merge_caption_into_text(text: str, caption: Optional[str]) -> str:
+def merge_caption_into_text(text: str, caption: str | None) -> str:
     """画像/ドキュメントの caption を本文に統合する。
 
     両方あれば caption + "\\n" + text、片方欠落時は片方のみ、両方欠落時は空文字。

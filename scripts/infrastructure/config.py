@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from domain.authorization import AuthorizedChats
 from domain.session_config import SessionDuration
@@ -100,7 +100,7 @@ class Config:
         return self.registry_root / "wal" / "WAL.jsonl"
 
     @classmethod
-    def from_sources(cls, config_path: Path | None = None) -> "Config":
+    def from_sources(cls, config_path: Path | None = None) -> Config:
         """env（秘匿 + state_dir + media 任意上書き）と config.json（非秘匿の正典）から構築。
 
         秘匿（token/chats）は env、session_duration_sec 等の運用設定は config.json。
@@ -110,27 +110,21 @@ class Config:
         # --- 秘匿: env（fail-fast） ---
         token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
         if not token:
-            raise EnvironmentError("TELEGRAM_BOT_TOKEN is not set")
+            raise OSError("TELEGRAM_BOT_TOKEN is not set")
 
         chats_raw = os.environ.get("SHIORI_AUTHORIZED_CHATS", "").strip()
         if not chats_raw:
-            raise EnvironmentError("SHIORI_AUTHORIZED_CHATS is not set")
+            raise OSError("SHIORI_AUTHORIZED_CHATS is not set")
         try:
             parsed = json.loads(chats_raw)
         except json.JSONDecodeError as exc:
-            raise EnvironmentError(
-                f"SHIORI_AUTHORIZED_CHATS must be JSON array of int: {exc}"
-            )
+            raise OSError(f"SHIORI_AUTHORIZED_CHATS must be JSON array of int: {exc}")
         if not isinstance(parsed, list):
-            raise EnvironmentError(
-                "SHIORI_AUTHORIZED_CHATS must be a JSON array of int"
-            )
+            raise OSError("SHIORI_AUTHORIZED_CHATS must be a JSON array of int")
         try:
             chat_ids: Iterable[int] = [int(c) for c in parsed]
         except (TypeError, ValueError) as exc:
-            raise EnvironmentError(
-                f"SHIORI_AUTHORIZED_CHATS elements must be ints: {exc}"
-            )
+            raise OSError(f"SHIORI_AUTHORIZED_CHATS elements must be ints: {exc}")
 
         # --- state_dir: env 任意上書き（未設定なら ./state、bootstrap が絶対化）。揮発 state 専用 ---
         state_dir = Path(os.environ.get("SHIORI_STATE_DIR", "./state")).resolve()
@@ -138,34 +132,34 @@ class Config:
         # --- 非秘匿の運用設定: config.json（<INSTALL_DIR>/config.json 決め打ち、必須） ---
         path = config_path or _default_config_path()
         if not path.exists():
-            raise EnvironmentError(
+            raise OSError(
                 f"config.json not found at {path}; run `init-config` to create it"
             )
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise EnvironmentError(f"config.json is not valid JSON ({path}): {exc}")
+            raise OSError(f"config.json is not valid JSON ({path}): {exc}")
         if not isinstance(data, dict):
-            raise EnvironmentError(f"config.json must be a JSON object ({path})")
+            raise OSError(f"config.json must be a JSON object ({path})")
 
         raw_duration = data.get("session_duration_sec")
         if raw_duration is None:
-            raise EnvironmentError(
+            raise OSError(
                 "config.json: session_duration_sec is required (no default; see config.template.json)"
             )
         try:
             duration = SessionDuration.from_seconds(int(raw_duration))
         except (TypeError, ValueError) as exc:
-            raise EnvironmentError(f"config.json: session_duration_sec invalid: {exc}")
+            raise OSError(f"config.json: session_duration_sec invalid: {exc}")
 
         agent_name = data.get(
             "agent_name"
         )  # Optional（prompt 用、CLI fetch/send では未使用）
         if agent_name is not None and not isinstance(agent_name, str):
-            raise EnvironmentError("config.json: agent_name must be a string")
+            raise OSError("config.json: agent_name must be a string")
         private_dir = data.get("private_dir")  # Optional
         if private_dir is not None and not isinstance(private_dir, str):
-            raise EnvironmentError("config.json: private_dir must be a string")
+            raise OSError("config.json: private_dir must be a string")
 
         # --- registry（永続管理表）: config.json が値の正典。ただしパス解決は env 優先。 ---
         # config.json の registry_dir は cwd（=2リポ親）起点の相対だが、registry コマンドは
@@ -238,9 +232,9 @@ class Config:
         try:
             value = int(raw)
         except ValueError as exc:
-            raise EnvironmentError(f"{env_name} must be a positive integer: {exc}")
+            raise OSError(f"{env_name} must be a positive integer: {exc}")
         if value <= 0:
-            raise EnvironmentError(f"{env_name} must be > 0 (got {value})")
+            raise OSError(f"{env_name} must be > 0 (got {value})")
         return value
 
     @staticmethod
@@ -252,4 +246,4 @@ class Config:
             return True
         if raw in ("false", "0", "no"):
             return False
-        raise EnvironmentError(f"{env_name} must be true/false (got {raw!r})")
+        raise OSError(f"{env_name} must be true/false (got {raw!r})")

@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from PrecognitiveViewer.Report.domain import (
     DrawnCard,
@@ -26,9 +25,9 @@ class TarotReadingUseCase:
 
     def __init__(
         self,
-        card_repo: Optional[TarotCardRepository] = None,
-        spread_repo: Optional[SpreadRepository] = None,
-        shuffler: Optional[DeterministicShuffler] = None,
+        card_repo: TarotCardRepository | None = None,
+        spread_repo: SpreadRepository | None = None,
+        shuffler: DeterministicShuffler | None = None,
     ) -> None:
         self._card_repo = card_repo or TarotCardRepository()
         self._spread_repo = spread_repo or SpreadRepository()
@@ -39,7 +38,7 @@ class TarotReadingUseCase:
         question: str,
         context: str,
         spread_name: str,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> TarotReading:
         """指定のスプレッドでカードを引き、TarotReading を返す。
 

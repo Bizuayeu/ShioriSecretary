@@ -1,6 +1,5 @@
 import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 
 """
@@ -28,8 +27,8 @@ class Character:
 class NameComponents:
     """姓と名の文字情報と格納順を管理するデータクラス"""
 
-    surname: List[Character] = field(default_factory=list)  # 姓の文字リスト（順序保持）
-    given_name: List[Character] = field(
+    surname: list[Character] = field(default_factory=list)  # 姓の文字リスト（順序保持）
+    given_name: list[Character] = field(
         default_factory=list
     )  # 名の文字リスト（順序保持）
 
@@ -40,15 +39,15 @@ class Frame:
 
     name: str  # 格の名前（天格、地格など）
     value: int  # 格の数値
-    spirit_number: Optional[int] = None  # 数霊番号（1-91）
-    system_number: Optional[int] = None  # 系数（一の位）
-    secret_number: Optional[int] = None  # 秘数（数字根）
-    system_star: Optional[str] = None  # 系数の星導（天体）
-    secret_star: Optional[str] = None  # 秘数の星導（天体）
-    fortune: Optional[str] = None  # 吉凶
-    meaning: Optional[str] = None  # 象意
-    ten_stems: Optional[str] = None  # 十干（甲乙丙丁戊己庚辛壬癸）
-    five_elements: Optional[str] = None  # 五行（木火土金水）
+    spirit_number: int | None = None  # 数霊番号（1-91）
+    system_number: int | None = None  # 系数（一の位）
+    secret_number: int | None = None  # 秘数（数字根）
+    system_star: str | None = None  # 系数の星導（天体）
+    secret_star: str | None = None  # 秘数の星導（天体）
+    fortune: str | None = None  # 吉凶
+    meaning: str | None = None  # 象意
+    ten_stems: str | None = None  # 十干（甲乙丙丁戊己庚辛壬癸）
+    five_elements: str | None = None  # 五行（木火土金水）
 
 
 @dataclass
@@ -63,7 +62,7 @@ class SevenFrames:
     雲格: Frame  # 仕事の満足度・職場の人間関係
     底格: Frame  # 家族の満足度・夫婦関係
 
-    def all_frames(self) -> List[Frame]:
+    def all_frames(self) -> list[Frame]:
         """すべての格をリストで返す"""
         return [
             self.天格,
@@ -91,7 +90,7 @@ class StarDistribution:
     火星: int = 0  # 闘争
     冥王星: int = 0  # 終末
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> dict[str, int]:
         """辞書形式で出力"""
         return {
             "太陽": self.太陽,
@@ -116,7 +115,7 @@ class PersonnelTypes:
     秀才度: int = 0  # 太陽+木星+水星：平和的調整者
     凡人度: int = 0  # 月+金星+土星：堅実な実行者
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> dict[str, int]:
         """辞書形式で出力"""
         return {
             "軍人度": self.軍人度,
@@ -164,15 +163,15 @@ class FortuneTellerAssessment:
         Returns:
             読み込んだJSONデータ
         """
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return json.load(f)
 
     def parse_name(
         self,
         surname: str,
         given_name: str,
-        surname_strokes: List[int],
-        given_strokes: List[int],
+        surname_strokes: list[int],
+        given_strokes: list[int],
     ) -> NameComponents:
         """姓名を文字単位に分解して画数と共に格納
 
@@ -225,7 +224,7 @@ class FortuneTellerAssessment:
 
     def calculate_main_frames(
         self, components: NameComponents
-    ) -> Tuple[int, int, int, int, int]:
+    ) -> tuple[int, int, int, int, int]:
         """主要五格（天格・地格・人格・総格・外格）を計算
 
         主要五格では霊数を使用しない（霊数は雲格・底格のみで使用）
@@ -273,7 +272,7 @@ class FortuneTellerAssessment:
 
     def calculate_supplementary_frames(
         self, components: NameComponents, 総格: int
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """補助格（雲格・底格）を計算
 
         1字姓や1字名の場合に霊数1を加える複雑な計算を行う
@@ -324,7 +323,7 @@ class FortuneTellerAssessment:
 
         return 雲格, 底格
 
-    def get_spirit_info(self, number: int) -> Dict:
+    def get_spirit_info(self, number: int) -> dict:
         """数霊表から該当する数霊情報を取得
 
         91を超える場合は90で循環させる（91→1、92→2...）
@@ -567,9 +566,9 @@ class FortuneTellerAssessment:
         self,
         surname: str,
         given_name: str,
-        surname_strokes: List[int],
-        given_strokes: List[int],
-    ) -> Dict:
+        surname_strokes: list[int],
+        given_strokes: list[int],
+    ) -> dict:
         """姓名判定のメインメソッド
 
         姓名と画数を受け取り、七格剖象法による鑑定結果を返す

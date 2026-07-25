@@ -11,7 +11,6 @@ import base64
 import hashlib
 import json
 from pathlib import Path
-from typing import Optional
 
 # 同じディレクトリの domain（Report/domain.py）を参照する
 # conftest.py で PrecognitiveViewer package を sys.path に通している
@@ -26,7 +25,7 @@ DATA_DIR = Path(__file__).parent
 class TarotCardRepository:
     """tarot_cards.json から 78 枚の TarotCard をロードする"""
 
-    def __init__(self, json_path: Optional[Path] = None) -> None:
+    def __init__(self, json_path: Path | None = None) -> None:
         self._json_path = json_path or (DATA_DIR / "tarot_cards.json")
         with self._json_path.open("r", encoding="utf-8") as f:
             self._raw = json.load(f)
@@ -53,7 +52,7 @@ class TarotCardRepository:
 class SpreadRepository:
     """tarot_spreads.json からスプレッド定義をロードする"""
 
-    def __init__(self, json_path: Optional[Path] = None) -> None:
+    def __init__(self, json_path: Path | None = None) -> None:
         self._json_path = json_path or (DATA_DIR / "tarot_spreads.json")
         with self._json_path.open("r", encoding="utf-8") as f:
             self._raw = json.load(f)

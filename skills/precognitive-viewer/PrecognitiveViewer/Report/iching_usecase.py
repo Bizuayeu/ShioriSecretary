@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 # conftest.py で sys.path に I-Ching/ が追加されている
 from iching_divination import IChingDivination
 
@@ -15,14 +13,14 @@ from iching_divination import IChingDivination
 class IChingDivinationUseCase:
     """周易占断 UseCase。既存エンジンをラップし、UseCase 層 API を提供する。"""
 
-    def __init__(self, divination: Optional[IChingDivination] = None) -> None:
+    def __init__(self, divination: IChingDivination | None = None) -> None:
         self._divination = divination or IChingDivination()
 
     def divine(
         self,
         question: str,
         context: str,
-        timestamp: Optional[float] = None,
+        timestamp: float | None = None,
     ) -> dict:
         """易占断を実行し、結果 dict を返す。
 
