@@ -317,7 +317,7 @@ Because it is a distribution artifact, it does not hold real IDs; each person no
 | Repositories | the base repo (persona definition) + Private (`<PRIVATE_DIR>`: SecretaryRole / state) |
 | Trigger | Schedule |
 | Cron | `<working hours. e.g., 0 9-16 * * 1-5>` (the length of each run is config.json's `session_duration_sec`) |
-| Model | `claude-opus-4-8` (optional) |
+| Model | `claude-opus-5` (optional) |
 | Environment | `<environment_id>` (injects bot token / authorized chats) |
 | Env vars | `TELEGRAM_BOT_TOKEN` / `SHIORI_AUTHORIZED_CHATS` (+ optional `SHIORI_*`) |
 | Edit URL | `https://claude.ai/code/routines/<trigger_id>` |
