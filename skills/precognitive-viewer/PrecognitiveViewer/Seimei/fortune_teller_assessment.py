@@ -136,10 +136,7 @@ class FortuneTellerAssessment:
                      Noneの場合は実行ファイルと同じディレクトリを使用
         """
         # JSONファイルのディレクトリを決定
-        if json_dir is None:
-            json_dir = Path(__file__).parent
-        else:
-            json_dir = Path(json_dir)
+        json_dir = Path(__file__).parent if json_dir is None else Path(json_dir)
 
         # 各種JSONデータを読み込み
         self.spirit_table = self._load_json(
@@ -163,7 +160,7 @@ class FortuneTellerAssessment:
         Returns:
             読み込んだJSONデータ
         """
-        with open(filepath, encoding="utf-8") as f:
+        with filepath.open(encoding="utf-8") as f:
             return json.load(f)
 
     def parse_name(

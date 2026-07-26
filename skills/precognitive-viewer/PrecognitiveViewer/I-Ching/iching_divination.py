@@ -28,7 +28,7 @@ class IChingDivination:
             current_dir = Path(__file__).parent
             database_path = current_dir / "大卦データベース.json"
 
-        with open(database_path, encoding="utf-8") as f:
+        with Path(database_path).open(encoding="utf-8") as f:
             self.database = json.load(f)
 
         self.hexagrams = self.database["hexagrams"]

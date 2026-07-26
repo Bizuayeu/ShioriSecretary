@@ -4,6 +4,26 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.3.2] - 2026-07-26 — lint ルールの拡張と CI ゲートの確立
+
+### Added
+
+- **CI（GitHub Actions）を新設** — lint（`ruff check .` / `ruff format --check .`）と pytest を push/PR のゲートに載せた。ruff は `0.16.0` に版固定する（整形結果は ruff の版に依存するため、双子リポ TelegramSecretary と揃えないと差分が出る。更新は「版を上げて再適用する」commit として意図的に行う）
+
+### Changed
+
+- **ruff の select に `N` / `B` / `SIM` / `PTH` を追加** — 従来の `E4,E7,E9,F,I,UP` では「CI が green のまま危険記法が溜まる」経路が残っていた。実際に B904 5 件・SIM105 4 件・PTH 6 件・SIM114 1 件・SIM108 1 件を検出し、挙動を変えずに全件解消した。以後の再混入は CI が止める
+- **例外連鎖を復元（B904、5 箇所）** — `config.py` の `raise OSError(...)` を `... from exc` へ。原因例外（`json.JSONDecodeError` / `ValueError`）が traceback から切れており、config 不正の一次原因を追えなかった。メッセージ文字列は不変
+- **握り潰しを `contextlib.suppress` へ（SIM105、4 箇所）** — atomic 書込の tmp 掃除・`rebase --abort`・lease clear・`sendChatAction` の best-effort。「握るのが意図」であることが構文で読める形にした（挙動不変）
+- **パス操作を pathlib へ統一（PTH、6 箇所）** — `os.replace` / `os.unlink` / `open()` を `Path.replace` / `Path.unlink` / `Path.open` へ。`Path.replace` は `os.replace` 実装ゆえ atomic rename の保証は不変。同梱スキル precognitive-viewer の 2 箇所を含む
+- **`I`（import 整列）と `UP`（pyupgrade）の恒久ルール化と一括適用** — 狭い select では検出されないまま `typing.Dict` / `Optional[X]` 等の旧記法が残存していた。`ruff format` も全 Python ソースへ適用し、整形基準を機械可読に固定した
+
+### Notes
+
+- N818（例外名の `Error` 接尾辞、4 件）は `ignore` に理由付きで登録し見送り。`MediaSizeLimitExceeded` / `AttachmentNotFound` / `AttachmentTooLarge` は SECURITY.md・SKILL.md・usecases・tests から名指しで参照される公開 API であり、patch リリースでの改名は利用側を壊す。破壊的変更として次の minor にまとめる
+- 同梱スキル precognitive-viewer の N803 / N806 / N999 は per-file-ignores で除外。占術ドメインを日本語の識別子（天 / 地 / 人 / 得卦 / 総格）で書いており、日本語には大文字小文字の区別が無いため構造上必ず誤検知になる。N999 はパッケージ名 `PrecognitiveViewer` 自体で、公開 import パスゆえ改名できない
+- 挙動の変更なし。テスト 651 passed（増減なしが、リファクタが既存契約を保った物証）
+
 ## [1.3.1] - 2026-07-26 — 音声デコード失敗を「無音」と区別
 
 ### Fixed

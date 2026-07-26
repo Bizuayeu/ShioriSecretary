@@ -118,13 +118,17 @@ class Config:
         try:
             parsed = json.loads(chats_raw)
         except json.JSONDecodeError as exc:
-            raise OSError(f"SHIORI_AUTHORIZED_CHATS must be JSON array of int: {exc}")
+            raise OSError(
+                f"SHIORI_AUTHORIZED_CHATS must be JSON array of int: {exc}"
+            ) from exc
         if not isinstance(parsed, list):
             raise OSError("SHIORI_AUTHORIZED_CHATS must be a JSON array of int")
         try:
             chat_ids: Iterable[int] = [int(c) for c in parsed]
         except (TypeError, ValueError) as exc:
-            raise OSError(f"SHIORI_AUTHORIZED_CHATS elements must be ints: {exc}")
+            raise OSError(
+                f"SHIORI_AUTHORIZED_CHATS elements must be ints: {exc}"
+            ) from exc
 
         # --- state_dir: env 任意上書き（未設定なら ./state、bootstrap が絶対化）。揮発 state 専用 ---
         state_dir = Path(os.environ.get("SHIORI_STATE_DIR", "./state")).resolve()
@@ -138,7 +142,7 @@ class Config:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise OSError(f"config.json is not valid JSON ({path}): {exc}")
+            raise OSError(f"config.json is not valid JSON ({path}): {exc}") from exc
         if not isinstance(data, dict):
             raise OSError(f"config.json must be a JSON object ({path})")
 
@@ -150,7 +154,7 @@ class Config:
         try:
             duration = SessionDuration.from_seconds(int(raw_duration))
         except (TypeError, ValueError) as exc:
-            raise OSError(f"config.json: session_duration_sec invalid: {exc}")
+            raise OSError(f"config.json: session_duration_sec invalid: {exc}") from exc
 
         agent_name = data.get(
             "agent_name"
@@ -232,7 +236,7 @@ class Config:
         try:
             value = int(raw)
         except ValueError as exc:
-            raise OSError(f"{env_name} must be a positive integer: {exc}")
+            raise OSError(f"{env_name} must be a positive integer: {exc}") from exc
         if value <= 0:
             raise OSError(f"{env_name} must be > 0 (got {value})")
         return value
