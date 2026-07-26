@@ -4,6 +4,57 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.4.0] - 2026-07-26 — exception names renamed for N818 compliance (breaking change)
+
+### Breaking Changes
+
+- **Renamed 4 exception classes to carry an `Error` suffix** — the N818 rule parked in `ignore` back in v1.3.2 has been lifted, and every offender it reports is now renamed. No compatibility aliases are provided (callers importing the old names break loudly — that is precisely what the minor bump announces)
+
+| Old name | New name | Location |
+|----------|----------|----------|
+| `MediaSizeLimitExceeded` | `MediaSizeLimitExceededError` | `scripts/domain/exceptions.py` |
+| `AttachmentNotFound` | `AttachmentNotFoundError` | `scripts/domain/exceptions.py` |
+| `AttachmentTooLarge` | `AttachmentTooLargeError` | `scripts/domain/exceptions.py` |
+| `_ConfigInvalid` | `_ConfigInvalidError` | `scripts/main.py` (an internal signal at the CLI boundary, not public API) |
+
+- The blast radius is limited to callers importing `domain/exceptions.py` directly. CLI exit codes, env variable names, and the shape and values of the emitted JSON (`skip_reason="media_size_exceeded"` and friends) are all unchanged
+
+### Changed
+
+- **Dropped `ignore = ["N818"]` from pyproject** — exception naming is policed by CI from now on. The v1.3.2 ignore comment named 3 classes, but letting the machine do the counting produced 4: the internal signal `_ConfigInvalid` in `scripts/main.py` had slipped out of the hand-written enumeration. Even a "reasoned ignore" rots when the list of what it covers is maintained by hand
+- **Propagated the new names through SECURITY.md / SKILL.md and their English editions** — the only surviving occurrences of the old names are the historical entries in this changelog (verified with `git grep`)
+
+### Notes
+
+- No behavioral changes. Tests 651 passed (unchanged from v1.3.2 — evidence that the rename preserved every existing contract)
+
+## [1.3.2] - 2026-07-26 — wider lint rules and the establishment of a CI gate
+
+### Added
+
+- **Introduced CI (GitHub Actions)** — lint (`ruff check .` / `ruff format --check .`) and pytest now gate push/PR. ruff is pinned to `0.16.0` (formatting output depends on the ruff version, so unless it matches the twin repo TelegramSecretary the two drift apart; upgrades are performed deliberately, as a "raise the pin and re-apply" commit)
+
+### Changed
+
+- **Added `N` / `B` / `SIM` / `PTH` to the ruff select** — the previous `E4,E7,E9,F,I,UP` left open the path where "dangerous idioms pile up while CI stays green". It actually detected 5 B904, 4 SIM105, 6 PTH, 1 SIM114 and 1 SIM108. 16 of them were resolved without changing behavior; the remaining one (PTH105) was deliberately deferred for the reason given below. CI now stops any of them from creeping back in
+- **Restored exception chaining (B904, 5 sites)** — `raise OSError(...)` in `config.py` became `... from exc`. The originating exception (`json.JSONDecodeError` / `ValueError`) had been severed from the traceback, making the root cause of an invalid config untraceable. The message strings are unchanged
+- **Moved swallowed exceptions to `contextlib.suppress` (SIM105, 4 sites)** — tmp cleanup in atomic writes, `rebase --abort`, lease clear, and the best-effort `sendChatAction`. "Swallowing is the intent" is now legible from the syntax (behavior unchanged)
+- **Unified path operations on pathlib (PTH, 5 sites)** — `os.unlink` / `open()` became `Path.unlink` / `Path.open`, including 2 sites in the bundled precognitive-viewer skill
+- **Made `I` (import sorting) and `UP` (pyupgrade) permanent rules and applied them wholesale** — under the narrow select, legacy spellings such as `typing.Dict` / `Optional[X]` had survived undetected. `ruff format` was also applied to every Python source, fixing the formatting standard in a machine-readable form
+
+### Notes
+
+- **PTH105 (the `os.replace` in atomic writes, 1 site) is excluded via per-file-ignores on `scripts/adapters/atomic_io.py`** — switching to `Path.replace` turned 6 tests red on CI's Python 3.10. The 3.10 pathlib binds `os.replace` at import time through the accessor, so with `Path.replace` the crash-injection test's `monkeypatch.setattr(atomic_io.os, "replace", ...)` slips straight through and the invariant "a crash before publish leaves the old contents intact" goes unverified on 3.10. Verifiability was chosen over lint tidiness (`requires-python` is `>=3.10`)
+- N818 (the `Error` suffix on exception names, 4 items) was registered in `ignore` with a stated reason and deferred. `MediaSizeLimitExceeded` / `AttachmentNotFound` / `AttachmentTooLarge` are public API referenced by name from SECURITY.md, SKILL.md, usecases and tests, so renaming them in a patch release would break callers. The rename is bundled into the next minor as a breaking change
+- N803 / N806 / N999 in the bundled precognitive-viewer skill are excluded via per-file-ignores. The divination domain is written with Japanese identifiers (天 / 地 / 人 / 得卦 / 総格), and since Japanese draws no upper/lower case distinction these are structurally guaranteed false positives. N999 is the package name `PrecognitiveViewer` itself, which cannot be renamed because it is a public import path
+- No behavioral changes. Tests 651 passed (no change in count — evidence that the refactor preserved the existing contracts)
+
+## [1.3.1] - 2026-07-26 — telling audio decode failure apart from silence
+
+### Fixed
+
+- **Audio decode failures were masquerading as silence** — `FfmpegAudioPreprocessor` returned an empty array even for corrupted audio and files with no audio stream, so `MoonshineTranscriber` rounded them into the same `render_status="ok"` + empty transcript as genuine silence, leaving the secretary unable to detect the read failure. Undecodable input now raises the newly added `AudioDecodeError`, which is translated to `failed`. Decoding that succeeds with 0 samples (= genuine silence) still yields `ok`, and audio that decodes partway returns the partial samples
+
 ## [1.3.0] - 2026-06-12 — the Anego (big-sis) mode (P×A role evolution, 3 new registry tables, bundled triple-divination skill)
 
 ### Added

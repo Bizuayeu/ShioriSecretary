@@ -51,7 +51,7 @@ ShioriSecretary (the "bookmark" that grants a secretary to any Claude model) **r
 - **awareness of render leniency** — markitdown returns something even for garbage. Whether `rendered_text` is meaningful text is judged by the agent (the last line of defense is the agent layer)
 - **PDF / audio processed locally end-to-end** — pdfplumber/pypdfium2 (PDF) and Moonshine (audio) are all local processing, so files never leave the machine. When switching to an external STT that transmits audio (e.g., a future Whisper API), the privacy judgment that "the audio is handed to a third party" must be separately mandated
 - **absence of audio intermediate files** — PyAV decodes in memory to 16kHz mono float and does not write an intermediate ffmpeg wav to disk (no intermediate artifacts of confidential voice remain)
-- **outbound attachment limit** — anything exceeding `OUTBOUND_MAX_SIZE_BYTES` (default 50MB) is rejected before sending with `AttachmentTooLarge` (preventing misfires / cost accidents)
+- **outbound attachment limit** — anything exceeding `OUTBOUND_MAX_SIZE_BYTES` (default 50MB) is rejected before sending with `AttachmentTooLargeError` (preventing misfires / cost accidents)
 
 ## 6. Concurrency Control (Lease) ✅
 
