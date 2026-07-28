@@ -11,3 +11,6 @@
 # Shell scripts must stay LF: they run on Linux (cloud routine) where CRLF would break the
 # shebang (#!/bin/bash). (Subsumed by the * rule above; kept explicit for intent.)
 *.sh text eol=lf
+
+# PowerShell scripts likewise need CRLF — LF-terminated try/catch blocks fail to parse.
+*.ps1 text eol=crlf
