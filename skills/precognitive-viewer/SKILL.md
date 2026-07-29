@@ -106,6 +106,7 @@ python scripts/main.py abilities add --json '{
 ```
 skills/precognitive-viewer/
 ├── SKILL.md                      # 本ファイル（エントリポイント）
+├── SKILL_en.md                   # 同上（英語）
 └── PrecognitiveViewer/           # Python パッケージ（自己完結）
     ├── __init__.py               # bootstrap（Seimei/I-Ching を sys.path へ）
     ├── Report/                   # 鑑定書 Domain + UseCase + Presenter

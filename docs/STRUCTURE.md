@@ -56,7 +56,8 @@ ShioriSecretary/
 │   ├── SETUP.md              # セットアップガイド（運用開始の順路）
 │   ├── ROUTINE_PROMPT.md     # cloud routine prompt body
 │   ├── SECURITY.md           # 網羅的セキュリティ正典
-│   └── CHANGELOG.md          # 変更履歴
+│   ├── CHANGELOG.md          # 変更履歴
+│   └── devlog/               # 開発ログ（.gitignore 除外＝開発リポのみ、配布物外）
 │
 ├── docs_en/                  # 英語ドキュメント（docs/ の _en 併存、README_en.md から参照）
 │   ├── DESIGN_en.md / STRUCTURE_en.md / SETUP_en.md

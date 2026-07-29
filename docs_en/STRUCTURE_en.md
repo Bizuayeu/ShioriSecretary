@@ -56,7 +56,8 @@ ShioriSecretary/
 │   ├── SETUP.md              # setup guide (the route to begin operation)
 │   ├── ROUTINE_PROMPT.md     # cloud routine prompt body
 │   ├── SECURITY.md           # comprehensive security canon
-│   └── CHANGELOG.md          # change history
+│   ├── CHANGELOG.md          # change history
+│   └── devlog/               # dev log (.gitignore-excluded = dev repo only, not distributed)
 │
 ├── docs_en/                  # English documentation (the _en counterpart of docs/, referenced by README_en.md)
 │   ├── DESIGN_en.md / STRUCTURE_en.md / SETUP_en.md

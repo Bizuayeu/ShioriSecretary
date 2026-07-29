@@ -109,7 +109,8 @@ python scripts/main.py abilities add --json '{
 
 ```
 skills/precognitive-viewer/
-├── SKILL.md                      # this file (entry point)
+├── SKILL.md                      # entry point (Japanese)
+├── SKILL_en.md                   # this file (English)
 └── PrecognitiveViewer/           # Python package (self-contained)
     ├── __init__.py               # bootstrap (adds Seimei/I-Ching to sys.path)
     ├── Report/                   # reading-report Domain + UseCase + Presenter
