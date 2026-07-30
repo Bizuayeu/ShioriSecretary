@@ -166,11 +166,14 @@ fi
 # env は秘匿のみ)。deadline_epoch は計算"結果"ゆえ env スナップショットに残してよい。
 _shiori_duration="$(python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["session_duration_sec"])' "$_shiori_script_dir/config.json")" || _shiori_die "failed to read session_duration_sec from config.json"
 export SHIORI_SESSION_DEADLINE_EPOCH="${SHIORI_SESSION_DEADLINE_EPOCH:-$(( $(date +%s) + _shiori_duration ))}"  # 停止主軸: この epoch 秒を過ぎたら /goal 停止
-export SHIORI_POLL_SET_SEC="${SHIORI_POLL_SET_SEC:-580}"                     # メッセージ無し時の 1 窓上限 (bash timeout より短く)
+# SHIORI_POLL_SET_SEC の不変条件: max_duration + timeout(30) < bash_timeout/1000 (=600)。
+# 破ると最終サイクルが窓を超えて回り SIGTERM(143) で落ちる。540 が残す 30s のマージンは
+# Telegram 5xx リトライで long-poll が伸びた分の吸収代 (経緯は CHANGELOG v1.4.2)。
+export SHIORI_POLL_SET_SEC="${SHIORI_POLL_SET_SEC:-540}"                     # メッセージ無し時の 1 窓上限 (bash timeout より短く)
 export SHIORI_POLL_BASH_TIMEOUT_MS="${SHIORI_POLL_BASH_TIMEOUT_MS:-600000}"  # ポーリング call の bash tool timeout (=BASH_MAX_TIMEOUT_MS)
 # SHIORI_MAX_TURNS: 日次総量レートキャップ (旧: deadline 異常時の暴走保険、役割変更)。
 # 「~15通/h」を最低保証する天井 = アイドル下限(duration/POLL_SET_SEC) + 通数枠(15通/h)。
-# 24h→約507 (148+359)、4h→約84 (24+60)。高密度日は最大このturn数まで伸び、到達で当日沈黙
+# 24h→約520 (160+360)、4h→約86 (26+60)。高密度日は最大このturn数まで伸び、到達で当日沈黙
 # (lease release→次 cron が offset 継続)。先食い可ゆえ毎時平準化ではない。
 # 短 duration (テスト用、約1.4h 未満) では整数除算で算出が過小/0 になり /goal が即死するため
 # floor=30 を敷く (0 ターン停止の回避＝最低限の暴走保険予算)。env で上書き可。

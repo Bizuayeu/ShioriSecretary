@@ -117,7 +117,7 @@ source /tmp/shiori-secretary.env.sh && \
 
 12. Drive a goal with `/goal`: "keep watching Telegram until `$SHIORI_SESSION_DEADLINE_EPOCH` is reached". **Each turn = one foreground watch call**, and because it carries `--exit-on-message`, it **exits the instant a message is received → replies → restarts on the next turn** (immediate response). If no message arrives, it blocks via long-poll until the `--max-duration` window expires (the wait tokens are nearly zero due to getUpdates server-side blocking = minimal cost, and the foreground call keeps the session warm = avoids idle shutdown).
 
-**Window and poll count are decoupled**: the stopping main axis is the deadline (a clock time). The poll count is variable with message frequency (not counted). `$SHIORI_MAX_TURNS` is a daily total-volume rate cap (guarantees a minimum of ≈15 messages/h; bootstrap computes it from `session_duration_sec` = 24h≈507 / 4h≈84). On reaching it, it stops even before the deadline — an intentional upper bound that also serves as runaway insurance in case deadline judgment breaks.
+**Window and poll count are decoupled**: the stopping main axis is the deadline (a clock time). The poll count is variable with message frequency (not counted). `$SHIORI_MAX_TURNS` is a daily total-volume rate cap (guarantees a minimum of ≈15 messages/h; bootstrap computes it from `session_duration_sec` = 24h≈520 / 4h≈86). On reaching it, it stops even before the deadline — an intentional upper bound that also serves as runaway insurance in case deadline judgment breaks.
 
 `/goal` launch (**this call too must run `source /tmp/shiori-secretary.env.sh` at its start before being issued** — to expand `$SHIORI_SESSION_DEADLINE_EPOCH` etc. in the natural-language text):
 

@@ -70,7 +70,7 @@ python scripts/main.py poll --timeout 5
 python scripts/main.py lease acquire
 python scripts/main.py watch --exit-on-message --max-duration 30 --timeout 5
 #   → メッセージが来たサイクルで即 exit 0／無ければ 30 秒の窓満了で exit 0
-#   （本番の常駐設定＝4h 枠・580s 窓は ROUTINE_PROMPT.md 参照）
+#   （本番の常駐設定＝4h 枠・540s 窓は ROUTINE_PROMPT.md 参照）
 python scripts/main.py lease release
 ```
 

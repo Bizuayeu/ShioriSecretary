@@ -4,6 +4,34 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.4.2] - 2026-07-30 — polling window 580s → 540s (restoring the invariant)
+
+An actual SIGTERM(143) was observed in the upstream TelegramSecretary, and the same default had
+survived in this repository, which shares that codebase — so the fix is propagated here. Exactly
+one line changes behavior.
+
+### Fixed
+
+- **Default of `SHIORI_POLL_SET_SEC` lowered from 580 to 540** — the invariant governing the polling
+  window is `max_duration + timeout < bash_timeout/1000`, and the combination of defaults violated it
+  at `580 + 30 = 610 > 600`. Under normal conditions the "round down to the remaining window" logic in
+  `main.py` absorbs the final cycle, so the violation stays invisible; but when a Telegram 5xx retry
+  stretches the long poll, the cycle runs past the window, hits the bash timeout, and dies with
+  SIGTERM(143). 540 leaves a 30s margin that carries exactly that retry slack. **Only an
+  env-overridable default changes** — the logic is untouched (the rounding remains value-independent)
+- **Spelled out the invariant in the `bootstrap.sh` comment** — it previously said only "shorter than
+  the bash timeout", leaving *how much* shorter implicit. Had the formula been written down, this
+  violation would have been visible by eye
+
+### Changed
+
+- **Synced the `$SHIORI_MAX_TURNS` computation example to the new window length** — 24h≈507 / 4h≈84 →
+  **24h≈520 / 4h≈86** (the comment example in `bootstrap.sh`, `docs/ROUTINE_PROMPT.md`, and the
+  Japanese edition). The formula is unchanged; the idle floor `duration/POLL_SET_SEC` simply grows by
+  the amount the window shrank. The residency note in the README moves from 580s to 540s as well
+- What rises is only the ceiling of the daily total-volume rate cap; the `~15 messages/h` minimum
+  guarantee is unaffected
+
 ## [1.4.0] - 2026-07-26 — exception names renamed for N818 compliance (breaking change)
 
 ### Breaking Changes

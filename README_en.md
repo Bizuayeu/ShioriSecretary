@@ -70,7 +70,7 @@ python scripts/main.py poll --timeout 5
 python scripts/main.py lease acquire
 python scripts/main.py watch --exit-on-message --max-duration 30 --timeout 5
 #   → exit 0 immediately on the cycle a message arrives / if none, exit 0 on the 30-second window expiry
-#   (for the production residency settings = 4h slot / 580s window, see ROUTINE_PROMPT.md)
+#   (for the production residency settings = 4h slot / 540s window, see ROUTINE_PROMPT.md)
 python scripts/main.py lease release
 ```
 
