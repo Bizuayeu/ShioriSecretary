@@ -32,6 +32,62 @@ one line changes behavior.
 - What rises is only the ceiling of the daily total-volume rate cap; the `~15 messages/h` minimum
   guarantee is unaffected
 
+## [1.4.1] - 2026-07-29 — sealing the surfaces past the allowlist (input, output, throughput)
+
+The `allowlist` decides only *who can reach you*. Everything past it — the input surface, the output
+surface, the throughput — was undefended, and part of that defense sat in `docs/SECURITY.md` labelled
+"an operational responsibility" or "a design requirement" without ever being mechanized. This release
+turns those four points into implementation. Nothing here changes behavior in the direction of
+stopping traffic (detection, redaction, and a throttling window only).
+
+### Added
+
+- **Outbound leak scan** — bot tokens, PATs, secret env variable names and local absolute paths that
+  slip into an outgoing body are detected by shape and redacted (`scripts/domain/output_scan.py`).
+  Applied at both `SendReply` and `ProactiveSend` (`docs/SECURITY.md` §4 named both paths as in
+  scope). **Sending itself is never blocked** — blocking silences the secretary, and an outage is
+  likelier than the incident it guards against. The input side stops at a flag while the output side
+  redacts, because sending is irreversible
+- **A record of unauthorized access** — a discarded update now leaves one line behind, carrying its
+  `chat_id` and timestamp (never the body). Without a trace there is no way to observe after the fact
+  who reached the bot
+- **Per-chat rate limiting** — a window emitting at most 30 messages per authorized chat in any 60
+  seconds (`scripts/domain/rate_limit.py`). The allowlist narrows *who* but not *how much*, which
+  left open a path where a runaway authorized device burns agent turns without bound. Rejected
+  messages are not appended to history (the window keeps opening even mid-flood)
+
+### Fixed
+
+- **Text extracted from attachments and audio was bypassing the input defenses** — NFKC
+  normalization and the injection-flag check were applied to the body `text` / `caption` only, so the
+  `rendered_text` produced by markitdown / pdfplumber and the audio `transcript` reached the agent
+  untouched. From an authorized chat, "write the instruction in an attached PDF rather than the
+  message body" arrives with `injection_flags` still empty. **The agent reads an absent flag as
+  "this input has been vetted", so the mere existence of the earlier defense was handing out false
+  reassurance.** Extracted bodies are untrusted binary-derived text and rank as the same class of
+  external input surface as `text`/`caption`, so the render UseCase now applies the same order
+  (NFKC → flag check) and the emit side merges the result into the same top-level `injection_flags`
+  as the body flags
+
+### Security
+
+- **Raised the `Pillow` floor in the media extras from 9.1 to 12.3** — versions carrying the PYSEC
+  vulnerabilities accumulated across 9.1–12.2 could still be resolved. The media path decodes images
+  and PDFs — external input — arriving from authorized chats through `pypdfium2`'s `to_pil()`, so a
+  vulnerable version is shut out at the declaration. 12.3.0 declares `requires-python >=3.10` and
+  ships cp310 wheels, so CI's 3.10/3.11/3.12 matrix stays intact
+- **Brought `docs/SECURITY.md` in line with reality** — the items mechanized above were rewritten
+  from "an operational responsibility" into descriptions of what is implemented
+
+### Notes
+
+- The Domain additions are two pure functions and nothing else (`output_scan` / `rate_limit`). The
+  UseCase layer carries only the application points and the observation logging; the direction of
+  dependency is unchanged. The observation log goes to stderr, since stdout is the emitter's
+  dedicated channel
+- The bundled `precognitive-viewer` skill is out of scope for this release (untouched)
+- Tests **685 passed** (up from 651 in v1.4.0, +34)
+
 ## [1.4.0] - 2026-07-26 — exception names renamed for N818 compliance (breaking change)
 
 ### Breaking Changes
