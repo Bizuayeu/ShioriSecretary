@@ -4,6 +4,39 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.4.3] - 2026-08-02 — unjamming registry writes and recovering from watch interruption
+
+Permanent fixes for two phenomena observed in live operation of the upstream TelegramSecretary,
+propagated to this repository, which shares that codebase. Nothing changes in a behavior-restricting
+direction.
+
+### Fixed
+
+- **Seed a clone-local ignore of `__pycache__/` into the registry worktree (`bootstrap.sh`)** — when the
+  registry branch accidentally tracks `.pyc` files and a script under artifacts is executed, the
+  recompilation diff remains unstaged, blocking the `pull --rebase` recovery on push conflict so that
+  registry writes jam with exit 1 (the trigger is the simultaneous occurrence of a remote lead and a
+  `.pyc` diff). After provisioning, `__pycache__/` is idempotently appended to the clone's
+  `info/exclude` — it never touches the working tree, so `git status` stays clean, and it works whether
+  or not the branch has its own `.gitignore`
+
+### Added
+
+- **Recovery procedure from a worker-process restart in ROUTINE_PROMPT "Failure modes"** — a turn cut
+  off mid-watch is an interruption, not the end of the session (offset, lease, registry, and deadline
+  all survive on the persistent side). Recover by re-sourcing the env snapshot → `lease renew` (NOT
+  acquire) → resuming watch with the remaining window, and **do not redo bootstrap / lease acquire /
+  orientation** (re-running bootstrap hands the owner to a new session_id, and an acquire against a
+  lease you already hold can evict yourself via conflict (exit 4))
+
+### Notes
+
+- For an existing registry branch that already tracks `.pyc` files, a one-time cleanup with
+  `git rm -r --cached <the directory>` (plus optionally a branch-side `.gitignore`) is recommended. The
+  seeding guarantees "never track from now on"; it does not clean up what is already tracked
+- The body of a registered routine is a snapshot taken at registration time, so reflecting the
+  Failure-modes addition requires re-registering the body
+
 ## [1.4.2] - 2026-07-30 — polling window 580s → 540s (restoring the invariant)
 
 An actual SIGTERM(143) was observed in the upstream TelegramSecretary, and the same default had

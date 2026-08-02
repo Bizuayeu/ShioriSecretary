@@ -4,6 +4,23 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.4.3] - 2026-08-02 — registry 書込の詰まり対策と watch 中断の復帰手順
+
+母体 TelegramSecretary の実運用で観測された 2 事象の恒久対処を、同一コードベースの本リポへ波及させる。挙動を止める向きの変更は無い。
+
+### Fixed
+
+- **registry worktree へ `__pycache__/` の clone ローカル ignore を播種（`bootstrap.sh`）** — registry ブランチが誤って `.pyc` を追跡している状態で artifacts のスクリプトを実行すると、再コンパイル差分が unstaged で残り、push 競合時の `pull --rebase` リカバリを塞いで registry 書込が exit 1 で詰まる（remote 先行と `.pyc` 差分の同時発生が発火条件）。provisioning 後に clone の `info/exclude` へ `__pycache__/` を冪等追記する——working tree 非接触ゆえ `git status` を汚さず、ブランチ側 `.gitignore` の有無に依らず効く
+
+### Added
+
+- **ROUTINE_PROMPT「Failure modes」へ worker プロセス再起動からの復帰手順** — watch 中のターン切断はセッションの終了ではなく中断（offset・lease・registry・deadline は全て永続側に生存）。復帰は env snapshot re-source → `lease renew`（acquire ではない）→ 残り窓で watch 再開の順で、**bootstrap / lease acquire / オリエンテーションの再実行はしない**（新 session_id への owner 交代や、保持中リースへの acquire conflict（exit 4）で自分を自分で追い出すため）
+
+### Notes
+
+- 既に `.pyc` を追跡してしまっている既存 registry ブランチは、一度だけ `git rm -r --cached <該当ディレクトリ>`（＋任意でブランチ側 `.gitignore`）での掃除を推奨。播種は「以後追跡させない」を保証するもので、追跡済みの掃除は行わない
+- 登録済み routine の body は登録時 snapshot のため、Failure modes 追記の反映には body の再登録が必要
+
 ## [1.4.2] - 2026-07-30 — ポーリング窓 580s→540s（不変条件の回復）
 
 母体 TelegramSecretary で SIGTERM(143) の実発生が観測され、同一コードベース由来の本リポにも
