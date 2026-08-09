@@ -214,4 +214,9 @@ _shiori_env_file="${SHIORI_ENV_FILE:-/tmp/shiori-secretary.env.sh}"
 export SHIORI_ENV_FILE="$_shiori_env_file"
 _shiori_log "env snapshot -> $_shiori_env_file"
 
+# 起動時オリエンテーションの入口を、失敗するステップより上流（ここ）で名指しする。
+# 7表を並べて list すると registry 肥大で出力上限を超え、ハーネスが persisted-output へ
+# 退避して「データがコンテキストに載らないまま exit 0」する沈黙失敗になる（DESIGN §3.12）。
+_shiori_log "startup digest: python scripts/main.py orientation  (do NOT list the 7 tables side by side)"
+
 _shiori_log "ready"

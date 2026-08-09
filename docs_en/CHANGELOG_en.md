@@ -4,6 +4,36 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.5.0] - 2026-08-09 — countering the silent failure of startup orientation (orientation) and blocking the handover (stage one)
+
+Reading a bloated registry at startup pushed the output past the harness limit and got it
+diverted, so the command **exited 0 while the data never landed in context** — a silent
+failure of starting up believing you read what you did not, which recurred across 17 windows
+(measured 1.6MB: knowledge 943KB / 187 records, tasks 741KB / 8 records, the dominant term
+being a single record's 165K-character notes). The side-by-side `list` of the 7 tables is
+replaced with a narrowed digest, and the linearly accumulating handover is separated into blocks.
+
+### Added
+
+- **The `orientation` subcommand** — a read-only projection that emits, in one command, the role judgment, per-table record counts / byte sizes, the full text of the small tables (individuals/abilities/profile/goals/steps), one-line task summaries and the notes tail of active tasks, the `id | topic` index of knowledge, and the latest handoff blocks. **The output volume is bounded independently of total notes length and total knowledge content** (records may fatten; the output does not). Widths are adjustable with `--notes-tail` (default 4000) / `--topic-width` (default 120) / `--handoff-latest` (default 3) / `--handoff-cap` (default 8000)
+- **Handover handoff blocks (stage one)** — the write target moved from appending to a task's `notes` to `<registry_dir>/artifacts/handoff/<UTC datetime>_<session_id>.md`. **The session window itself becomes the block boundary**, and lexicographic descending order of the naming reads them newest-first. It carries neither schema nor CRUD (only the location and naming are standardized = the DESIGN §3.10 boundary is not violated)
+- **The `artifacts-sync` subcommand** — commits & pushes the deliverables layer `artifacts/` through the existing sync path (no new git code). There is no write CLI; it is the two moves of the secretary's `Write` → `artifacts-sync`
+- **The 200KB `list` warning** — when a single table's `list` output exceeds 200KB, one warning line goes to stderr (stdout and exit 0 unchanged = fail-open). It turns "silence" into "voice" without regressing existing paths
+- **A startup pointer in `bootstrap.sh`** — one line naming `orientation` just before `ready`. **Knowledge that prevents the failure of step X belongs upstream of X** (writing it into the data layer has no effect, because the step that reads it is the one that fails)
+
+### Changed
+
+- **ROUTINE_PROMPT Step 5 / SKILL.md Daily Workflow** — the side-by-side `list` procedure is replaced with a single `orientation` shot plus individual `get --key`, and the optimistic claim that "all 7 tables together are only a few thousand tokens" is removed. The mechanism of the silent failure is written down as the why (eradicating the source of the misdirection)
+- **A new §3.12 in `DESIGN.md` (SSoT for startup orientation)** — the mechanism of the silent failure, the upstream-placement principle, the boundedness of the output, and the handoff block boundary. Other documents are unified to a summary plus a pointer. §3.10 gains a note on "how far a conventioned use may go"
+- **`SECURITY.md` §7** — the PII scope of handoff is the same shape as the WAL (Private separation, identical commit target). Because it is free-form, however, the output-leak scan discipline is explicitly applied to writes as well
+
+### Notes
+
+- **Existing notes are not rewritten** (the inviolability of the append-only ledger). `orientation` keeps reading legacy accumulation as well (active tasks only, the last `notes_tail` characters), so the migration is reversible, breaks no existing data, and the tail only shrinks
+- The handover's **digestion (crystallization into knowledge) and graduation (archive) are the next stage** — this release's ceiling is separation alone, and the promotion trigger (measured orientation output above 100KB) is inscribed as a `cc-defer` in `registry_cli._read_handoff_blocks`
+- `handoff_latest=3` / `handoff_cap=8000` are **provisional**, extrapolated from measurement (to be calibrated by the next window's measurement). `notes_tail=4000` / `topic_width=120` / the 200KB warning threshold come from operational measurement
+- Because a registered routine's body is a snapshot taken at registration time, delivering the Step 5 replacement to production **requires re-registering the body** (repo edits alone do not reach it)
+
 ## [1.4.3] - 2026-08-02 — unjamming registry writes and recovering from watch interruption
 
 Permanent fixes for two phenomena observed in live operation of the upstream TelegramSecretary,

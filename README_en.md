@@ -109,6 +109,8 @@ python scripts/main.py lease release
 | `test --chat-id` | Connectivity test (send a ping to the owner chat) | 0, 1, 3 |
 | `cleanup-media` | Delete stored media past retention (`watch` fires it automatically; for manual/cron use) | 0, 2 |
 | `individuals\|tasks\|knowledge\|abilities\|profile\|goals\|steps {list\|get\|add\|remove}` | Management table CRUD (7 tables, input validation via value objects, exit 2 on invalid). When `registry_sync` is enabled, commit & push after add/remove | 0, 2 |
+| `orientation [--notes-tail N] [--topic-width N] [--handoff-latest N] [--handoff-cap N]` | Emit the startup orientation digest (role + per-table record counts/byte sizes + full text of the small tables + one-line task summaries and the notes tail of active tasks + the knowledge index + the latest handoff blocks). The output is bounded independently of record length (DESIGN §3.12) | 0, 2=missing config |
+| `artifacts-sync` | Commit & push the deliverables layer `artifacts/` (including the handover `handoff/` blocks) to the fixed branch. No-op when `registry_sync` is disabled or `artifacts/` does not exist | 0, 1=push failed |
 | `role-status` | Data-driven judgment of the current role (secretary/butler/coach/anego) from PROFILE/GOALS, emitted as one JSON line | 0 |
 | `registry-sync` | Fetch management tables from the fixed branch at startup (only when `registry_sync` is enabled; no-op when disabled) | 0, 1 |
 | `wal-append --kind <...> (--json\|--json-file)` / `wal-push` / `wal-redo` | WAL (word-deed consistency): push the intent ahead before a registration-type reply (must-succeed), and on startup redo unreflected entries into the registry. Only when `registry_sync` is enabled | 0, 1=push failure, 2 |

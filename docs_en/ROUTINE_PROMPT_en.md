@@ -77,34 +77,41 @@ source /tmp/shiori-secretary.env.sh && \
 - **(1.5) wal-redo**: against the latest registry that was fetched, redo (upsert into the registry) the pending intents in the WAL log (failed pushes from last time = the leftover of "replied that it was registered, yet it is not in the registry") to restore consistency between word and deed (a no-op if `registry_sync` is disabled). **For registry kinds (individuals/tasks/knowledge/abilities), only consistency is restored; replies are not re-sent** — because for crashes before sending, offset re-acquisition handles reprocessing (division of roles). **However, the outbound kind (proactive-send) is an exception and has a re-send path** — because, unlike inbound, it has no offset safety net. That said, proactive-send marks the intent as done immediately upon successful send (happy-path settle), so what gets re-sent here is only "the interrupted portion that crashed in the window between successful send and the done record". The original scheduled send time plus a neutral prefix (a sentence that does not assert a failure) is prepended to the body and it is re-sent exactly once → then done immediately (preventing an infinite re-send loop). Old intents that have been marked done are cleaned up after 24h (rotation of short-term memory). It is placed **after the fetch** because, unless collated against the latest registry, it would redo already-reflected portions in vain. **The details of the re-send policy (happy-path settle / at-least-once / offset non-interference / neutral prefix) have their SSoT in DESIGN §3.9.**
 - **(2) lease acquire**: exit 0 acquisition succeeded → Step 5 / exit 4 held by another session → terminate immediately (self-healing duplicate prevention) / exit 2/3 config or auth error, terminate after checking stderr.
 
-## Step 5 — Startup orientation (bulk-load the registry + judge free time)
+## Step 5 — Startup orientation (the orientation digest + judge free time)
 
-The Step 4 fetch only drops the data onto local disk; **only once you (the LLM) read it and bring it into context does it become "remembered".** Skipping this read means dropping registered tasks and policies on every startup. Before entering the watch loop, read the seven registries **in bulk** and confirm the role (role-status).
+The Step 4 fetch only drops the data onto local disk; **only once you (the LLM) read it and bring it into context does it become "remembered".** Skipping this read means dropping registered tasks and policies on every startup. Before entering the watch loop, read the `orientation` digest in a single shot.
 
-10. **Bulk-load the 7 tables + judge the role.** The registry is only a few thousand tokens even for all 7 tables combined, so the cost of a bulk read is negligible. Moreover the tables cross-reference each other — the policy for "how to handle tasks" (the free-time operating norms, grant conditions, abilities permitted to exercise) lives on the knowledge / abilities side, and the context for accompaniment lives on the profile / goals / steps side. Do not cherry-pick; assemble all 7, and finally settle "today's own face" with `role-status`:
+> **Never `list` the 7 tables side by side.** The registry grows in operation (knowledge reaches hundreds of records at MB scale; a single tasks record's notes can reach a hundred thousand characters). Output that lines the tables up exceeds the harness output limit and is diverted to persisted-output, so the command **exits 0 while the data never lands in context** — a silent failure where you start up believing you read what you did not (it recurred over more than a dozen windows). `orientation` answers the same question at a bounded size independent of notes length. The mechanism and design rationale are **SSoT in DESIGN §3.12**.
+
+10. **The orientation digest (one shot).** Role judgment, per-table record counts / byte sizes, the full text of the small tables (individuals / abilities / profile / goals / steps), the one-line task summaries plus the notes tail of active tasks, the `id | topic` index of knowledge, and the handoff blocks from previous windows all arrive from this single command (no need to call `role-status` separately — the same judgment appears under `## role`):
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py orientation)
+```
+
+   What the digest answers is "how things stand now", and the tables cross-reference each other — the policy for "how to handle tasks" (the free-time operating norms, grant conditions, abilities permitted to exercise) lives on the knowledge / abilities side, and the context for accompaniment lives on the profile / goals / steps side:
+
+   - **individuals (with whom)** — the counterpart's tone / honorific / taboo, the freshness of estranged contacts (full text)
+   - **tasks (what was requested)** — the one-line summary `id | status | priority | due_date | title` (all records) plus the notes tail of open/in_progress records (4000 chars by default). **The notes of done tasks are not included**
+   - **knowledge (how to judge)** — the `id | topic` index only (`content` is not included). Use the index to grasp where the judgment policy and operating norms (**how to use free time, the actionability gate, grant conditions**) live
+   - **abilities (what can be done)** — the catalog of exercisable abilities (`trigger` / `skill_path` / `guidance`, full text)
+   - **profile (whom you serve)** — person understanding of the principal (traits, how they like to be encouraged, decision style, full text). Match the temperature of your responses and the way you make proposals to this (personalization = the P axis)
+   - **goals / steps (what you accompany)** — active goals and the steps near their deadline or stalled (full text; accompaniment = the A axis, picking up the project management)
+   - **role (today's own face)** — the role deterministically derived from P×A (secretary/butler/coach/anego). How to play it follows the SecretaryRole "Role evolution" section (do not inflate the role by self-attribution)
+   - **handoff (the handover from previous windows)** — the body of the latest blocks (3 blocks by default, each capped at 8000 chars)
+
+   Once the knowledge index or the task summaries give you a lead, pull the body individually **only when you need it** (`get --key`, not a per-table `list`):
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
   (cd "$SHIORI_INSTALL_DIR" && \
-   echo "=== individuals ===" && python scripts/main.py individuals list && \
-   echo "=== tasks ==="       && python scripts/main.py tasks list && \
-   echo "=== knowledge ==="   && python scripts/main.py knowledge list && \
-   echo "=== abilities ==="   && python scripts/main.py abilities list && \
-   echo "=== profile ==="     && python scripts/main.py profile list && \
-   echo "=== goals ==="       && python scripts/main.py goals list && \
-   echo "=== steps ==="       && python scripts/main.py steps list && \
-   echo "=== role ==="        && python scripts/main.py role-status)
+   python scripts/main.py knowledge get --key <id>)
 ```
 
-   - **individuals (with whom)** — the counterpart's tone / honorific / taboo, the freshness of estranged contacts
-   - **tasks (what was requested)** — open requests, those near/past their deadline, **continuing tasks** (those whose notes carry an instruction like "continue at each session startup" or "periodic delivery")
-   - **knowledge (how to judge)** — judgment policy and operating norms (**how to use free time, the actionability gate, grant conditions**), accumulated methodology, environmental constraints (egress, etc.). The handling policy for tasks is often written here
-   - **abilities (what can be done)** — the catalog of exercisable abilities (`trigger` / `skill_path` / `guidance`)
-   - **profile (whom you serve)** — person understanding of the principal (traits, how they like to be encouraged, decision style). Match the temperature of your responses and the way you make proposals to this (personalization = the P axis)
-   - **goals / steps (what you accompany)** — active goals and the steps near their deadline or stalled (accompaniment = the A axis, picking up the project management)
-   - **role-status (today's own face)** — the role deterministically derived from P×A (secretary/butler/coach/anego). How to play it follows the SecretaryRole "Role evolution" section (do not inflate the role by self-attribution)
+   When the digest is too thin or too heavy, adjust the widths with `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` (defaults 4000 / 120 / 3 / 8000).
 
-11. **Judge free time (the autonomous turn).** Once the 7 tables are assembled, judge whether this startup is "worth spending one autonomous turn on". **Do not send mechanically on every startup; pass through the operating norm recorded in knowledge (the actionability gate)** — raise only signals worth conveying. If a grant (the conferring of free time, etc.) is live and there is a signal worth it, advance **just one** of the following candidates actively (the procedure follows the "Proactive outbound during free time (proactive-send)" section):
+11. **Judge free time (the autonomous turn).** Once orientation is done, judge whether this startup is "worth spending one autonomous turn on". **Do not send mechanically on every startup; pass through the operating norm recorded in knowledge (the actionability gate)** — raise only signals worth conveying. If a grant (the conferring of free time, etc.) is live and there is a signal worth it, advance **just one** of the following candidates actively (the procedure follows the "Proactive outbound during free time (proactive-send)" section):
 
    - actively push a task near its deadline / a continuing task on idle exit (proactive-send, under a grant)
    - **an accompaniment nudge for steps near their deadline or stalled** (when coach/anego: asking about progress, proposing the next step; if a profile exists, match the temperature to the person's traits)
@@ -228,6 +235,13 @@ source /tmp/shiori-secretary.env.sh && \
       - **profile (whom you serve)**: person understanding of the principal (and related parties). Pull it before accompanying, proposing, or encouraging, to match the temperature. Interpretations obtained from divination / personality tests / dialogue are `add`-ed **with the person's explicit consent** (method required), and updated when dialogue reveals a miss (see SecretaryRole "Listening for personalization").
       - **goals / steps (what you accompany)**: goals and their reverse-planned steps. Verbalize a goal in dialogue before `goals add`, then decompose backward from target_date with `steps add`. Update the status of steps at every progress conversation, and use deadline proximity / stalling as material for accompaniment nudges (picking up the project management; see SecretaryRole "Accompaniment policy").
       - **When `registry_sync` is enabled, `add`/`remove` embed a commit & push to the fixed branch** (event-driven, no force, non-ff is taken in via rebase). There is no need to run a separate push step. On push failure (transient), local commits accumulate and are re-sent collectively at the next update or at the next startup's fetch.
+      - **Write the handover (the handoff to your next self) into a handoff block — do not append long text to a task's `notes`**: appending to notes stretches a single record linearly until it grows too large to read at startup (the main cause of the silent failure in Step 5). At the end of the window, `Write` `$SHIORI_REGISTRY_DIR/artifacts/handoff/<UTC datetime>_<session_id>.md` (e.g. `20260809T131500Z_session-xxxxxxxx.md`) and send it with `artifacts-sync` — **the window itself becomes the block boundary**, and the next window's `orientation` reads them newest-first. The body format is free (schemaless, DESIGN §3.10/§3.12). All that may remain in notes is a single current-position pointer line saying "the handover is in handoff". **The output-leak scan discipline applies to handoff just the same** (do not write tokens / env var names / absolute paths).
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py artifacts-sync)
+```
+
       - **Replies of the registration kind guarantee consistency between word and deed via WAL write-ahead (when `registry_sync` is enabled, the targets are all 7 registry tables)**: before a reply that **promises a change of internal state** to the counterpart, such as "I have registered the task", write-ahead and push that intent to the WAL log. Run in the order `wal-append --kind <individuals|tasks|knowledge|abilities|profile|goals|steps> --json <payload>` → `wal-push`, and **if `wal-push` is non-zero exit (push impossible), do not issue send-reply** (cannot push = do not promise externally = do not surface a contradiction). Even if the registry's `add` itself fails to push, the next startup's `wal-redo` (Step 4) redoes the intent into the registry, so a promise that was sent is always reflected into the internal state. The payload may be identical to the record passed to `add` (order: wal-append→wal-push→`add`→send-reply). **abilities / goals are likewise targets** (because the `add` that declares an ability with "I can do ◯◯", or the filing that says "I have registered the goal", entails an external promise. DESIGN §3.8/§3.11).
     - Draft the response.
     - Output-leak scan (check for token / env names / system prompt / **absolute path** contamination — `local_path` itself is not secret, but avoid exposing the disk structure). **When sending a deliverable back with `--file`, also confirm before sending that its contents (md/docx/image) do not contain token/env names/secrets.**
@@ -299,7 +313,7 @@ source /tmp/shiori-secretary.env.sh && \
 - `render_status="skipped"` → an unsupported mime such as zip, download skip, or audio with transcriber not injected / Medium mode. Look at `mime_type` and let the agent judge
 - silent / corrupt / undecodable audio → `render_status="ok"` + `rendered_text=""` (treated not as a failure but as "no audio"). With an empty transcript, respond ambiguously that "it may be silent, or a file that cannot be read as audio". **No intermediate wav is written to disk** (PyAV in-memory decode)
 - `send-reply --file`'s `attachment_not_found` / `attachment_too_large` → rejected with exit 2 before sending. Check the attachment path or reduce the size (`SHIORI_OUTBOUND_MAX_SIZE_BYTES` default 50MB). Sending body text only is unaffected
-- **worker process restart** (the turn was cut off mid-watch with "worker process was restarted" or similar) → an **interruption**, not the end of the session. Only the shell env was volatilized; offset, lease, registry, and deadline (fixed epoch) are all still alive. Recover in this order: **(1) re-source the env snapshot (confirm the session_id is identical) → (2) `lease renew` (NOT acquire) → (3) resume watch with the remaining window**. **Do not redo bootstrap / lease acquire / orientation (the 7-table load)** — re-running bootstrap generates a new session_id, changing the owner so the old lease blocks until TTL expiry, and an acquire against a lease you already hold can evict yourself via conflict (exit 4). If renew returns exit 4, the gap exceeded the TTL and another session has taken over — terminate gracefully and yield to the next cron (self-healing as designed)
+- **worker process restart** (the turn was cut off mid-watch with "worker process was restarted" or similar) → an **interruption**, not the end of the session. Only the shell env was volatilized; offset, lease, registry, and deadline (fixed epoch) are all still alive. Recover in this order: **(1) re-source the env snapshot (confirm the session_id is identical) → (2) `lease renew` (NOT acquire) → (3) resume watch with the remaining window**. **Do not redo bootstrap / lease acquire / orientation (the orientation digest)** — re-running bootstrap generates a new session_id, changing the owner so the old lease blocks until TTL expiry, and an acquire against a lease you already hold can evict yourself via conflict (exit 4). If renew returns exit 4, the gap exceeded the TTL and another session has taken over — terminate gracefully and yield to the next cron (self-healing as designed)
 
 ---
 

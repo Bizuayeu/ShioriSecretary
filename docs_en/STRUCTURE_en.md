@@ -103,6 +103,7 @@ ShioriSecretary/
 │   │   ├── outbound.py       # pre-send guards shared by send-reply / proactive-send (lease re-verification, attachment validation)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # registry CRUD UseCase
+│   │   ├── orientation.py    # projection for the startup digest (one-line summaries / index / notes tail / handoff selection, DESIGN §3.12)
 │   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
 │   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
 │   ├── adapters/
@@ -161,6 +162,8 @@ ShioriSecretary/
     ├── wal/
     │   └── WAL.jsonl                  # WAL (the say-do-consistency intent log + the last 24h of short-term memory, when registry_sync is enabled)
     └── artifacts/                     # the secretary's artifacts layer (unstructured, schemaless, §3.10). Persistent because accumulation is its essence
+        ├── handoff/                   # handover blocks (the window is the boundary, §3.12). Only the location and naming are standardized
+        │   └── <UTC datetime>_<session_id>.md   # e.g. 20260809T131500Z_session-xxxxxxxx.md (lexicographic descending = newest first)
         └── <artifact>.{json,md} …       # composition, naming, and indexing are the secretary's judgment (no CRUD/WAL/schema = the world of importance)
 ```
 
@@ -178,6 +181,7 @@ ShioriSecretary/
 | Person understanding PROFILE.json (the P axis) | `<registry_dir>/profile/` | Private (persistent, sensitive PII) |
 | Goals GOALS.json / steps STEPS.json (the A axis) | `<registry_dir>/goals/` `<registry_dir>/steps/` | Private (persistent) |
 | Artifacts (unstructured md/json) | `<registry_dir>/artifacts/` (tree-synced, §3.10) | Private (persistent, **the world of importance**) |
+| Handover (to the next window) | `<registry_dir>/artifacts/handoff/<UTC datetime>_<session_id>.md` (pushed by `artifacts-sync`, §3.12) | Private (persistent, **the world of importance**). Do not append long text to a task's notes |
 | Secretary persona SecretaryRole.md | `<Private>/Identities/` | Private |
 | Templates for each registry / the secretary persona | `templates/` | public |
 | Registry value objects | `scripts/domain/registry.py` | public |
