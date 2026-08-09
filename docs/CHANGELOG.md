@@ -4,6 +4,79 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.8.0] - 2026-08-10 — 許可集合の検証・サイズの自己申告・幅の校正手順
+
+v1.7.0 は幅の**単位**を是正したが、その値が実データで足りているかは**誰も測っていなかった**。
+母体運用の実測では、既定の orientation が 72,724 バイト・幅を絞った呼び出しでも 45,802 バイトで、
+いずれも退避される圏にいた——見積りが外れていたことに気づけなかったのは、出力サイズが
+観測面に出ていなかったからである。本版は (1) 弾くべき値を Domain で弾き、(2) サイズを毎枠
+stderr で申告させ、(3) その計器で幅を実測から決める手順を配る、の 3 点を入れる——
+**測る装置を先に置いてから校正する**。
+
+### ⚠️ 破壊的変更（アップグレード前に必読）
+
+**knowledge の `category` が許可集合 10 種に閉じ、検証が読み取り経路でも発火する。**
+範囲外の category を持つレコードが 1 件でもあると、`knowledge list` / `orientation` が
+**丸ごと exit 2 で落ちる**（値オブジェクトの `__post_init__` 検証ゆえ、読み出しでも発火する）。
+とくに **v1.7.0 までの `templates/KNOWLEDGE.template.json` が例示していた
+`projects` / `clients` / `procedures` は 3 つとも許可集合の外**——テンプレートに沿って
+運用していた場合はほぼ確実に該当する。
+
+**移行手順（アップグレード前に実施）**:
+
+1. 現行の category を数える（registry の実体 `<registry_dir>/knowledge/KNOWLEDGE.json`）:
+
+   ```bash
+   python -c "import json,collections,sys; print(collections.Counter(r['category'] for r in json.load(open(sys.argv[1],encoding='utf-8'))['records']))" <registry_dir>/knowledge/KNOWLEDGE.json
+   ```
+
+2. 許可集合の外にある値を、10 種のいずれかへ**手で読み替えて**書き換える（機械的な一括置換は
+   意味の対応が壊れるため配っていない——分類のやり直しは判断であって変換ではない）。
+   目安: 作業の一般則→`method` ／ 対象ドメインの知見→`domain-insight` ／ 器やツールの運用→`harness` ／
+   観察の記録→`observation` ／ 調べもの→`research` ／ データの分析結果→`analysis` ／
+   設計判断→`design` ／ 方針・原則→`philosophy` ／ 商売の勘所→`business` ／ 決めごと→`decision`
+3. 書き換え後に `orientation` が exit 0 で通ることを確認してからアップグレードする
+
+主題（案件・顧客 等）の軸を category に載せていた場合は、`topic` の接頭辞 `[主題] 本文`
+（例 `[経理] 月次締めの手順`）へ移す——**category は認識の型の軸専用**で、二軸を混ぜない。
+
+### Added
+
+- **knowledge `category` の許可集合検証（Domain）** — `observation` / `research` / `harness` / `domain-insight` / `analysis` / `design` / `method` / `philosophy` / `business` / `decision` の 10 種のみ通す。**エラーメッセージは許可集合を列挙する**——Identity / Goal（invalid 値のみ）との非対称は意図的で、弾かれる主体が自走エージェントである以上、エラー文だけで正しい語を選び直せる情報量が要る
+- **orientation 出力サイズの自己申告（Interface）** — 実行のたび stderr へ `orientation digest: N bytes` を**常時 1 行**。`ORIENTATION_WARNING_BYTES = 25 * 1024` 超では、退避の可能性と絞り 4 オプションの名指しを添える。閾値は**仮置き**（母体運用の実測境界 25〜39KB 圏の安全側下限、`cc-defer` で校正待ちを明示）。`_warn_if_oversized`（list の 200KB 警告）と違い**閾値未満でも黙らない**——安全側で黙る計器は「exit 0 なのに digest が載っていない」を観測させないまま通す。stdout は byte 不変・exit code も不変（fail-open）
+
+### Changed
+
+- **`Knowledge.from_dict` の `category` 必須化（後方非互換）** — 旧実装は `d.get("category", "general")` で欠落を黙って `"general"` に化けさせていた（許可集合に無い値を**沈黙生成する fail-open**）。`d["category"]` へ改め、**category を欠いた `knowledge add` は exit 2 になる**。落ちること自体が目的で、沈黙の `"general"` 生成こそが分類の増殖と綴り揺れの温床だった
+- **`templates/KNOWLEDGE.template.json` の category 記述** — 旧記述の例示（`projects` / `clients` / `procedures`）は**いずれも許可集合の外**で、そのまま従うと add が exit 2 になる。許可集合 10 種の列挙と「主題の軸は topic 接頭辞で持つ」に差し替えた
+- **ROUTINE_PROMPT Step 5 に幅の校正手順** — 呼び出し自体は**素の既定のまま**（新規インストールは絞る必要がない）。そのうえで「警告が出たら絞る」順序と、母体 registry での実測（**単一ノブでは目標に届かず**——最も効く `--knowledge-latest 30` 単独でも 45,802 バイト、4 項同時で 24,152 バイト）を worked example として載せた。**この 4 値は母体のデータに対する実測であって、利用者のデータの正解ではない**——自分の枠の `orientation digest: N bytes` を見て決める
+- **接点文書の追従** — `skills/shiori-secretary/SKILL.md`（category 制約と topic 接頭辞規約・stderr 申告）、`DESIGN.md` §3.12（サイズ自己申告・絞れない床・許可集合を読み取り経路で弾く理由）、`README.md`（オプション表）——いずれも日英同期
+
+### Notes
+
+- **topic 接頭辞規約（コード変更ゼロ）** — knowledge の主題軸は `topic` を `[主題] 本文` の形にして持てる。category は**認識の型**の軸専用に保ち、二軸を混ぜない。**規約であって強制ではない**——コードもデータも接頭辞を要求せず、運用開始と既存 topic への遡及付与は秘書の裁量。`tags` スキーマ拡張は絞り実装まで要求し始めるため、接頭辞で効かなかったときの昇格先として温存する
+- **絞れない床** — 全ノブを最小に振っても残る部分（小表全文＋tasks 一行要約）は母体実測で 11,629 バイト＝目標の 45%。将来 goals / steps が埋まれば床はさらに上がるため、そのときは小表側にも射影が要る（DESIGN §3.12）
+- **既存ユーザーの routine body は登録時 snapshot** — ROUTINE_PROMPT の変更を反映するには routine の再登録が要る
+
+## [1.7.0] - 2026-08-09 — orientation を現場データへ噛み合わせる（幅のバイト単位化・件数絞り）
+
+v1.5.0 で入れた有界射影は、**幅を字数で数えていた**。退避の閾値はバイトなので、
+日本語主体のデータでは 1 字≈2.47 バイトの分だけ実効幅が膨らみ、既定のまま
+99,037 バイトを出して沈黙失敗が再発した。**数値は動かさず単位だけを是正する**。
+
+### Added
+
+- **`orientation --knowledge-latest N`** — knowledge 索引を**新しい順 N 件**に頭打ちにする（id は日付順に振られるため id の大きい方が新しい）。見出しは `latest N of M, newest last`——**選ぶのは新しい順、並べるのは id 昇順のまま**（索引の読み方は変えず母数だけ減らす）で、この捻れは並べ替えではなく**読み方の開示**で解く。`--knowledge-category` と併用すると**絞ってから latest**。既定は未指定＝全件（後方互換・見出しも不変）
+
+### Changed
+
+- **幅の単位を UTF-8 バイトへ是正（`--notes-tail` / `--topic-width` / `--handoff-cap`）** — 退避の閾値と同じ単位で数える。**数値は不変のまま単位だけを是正**——v1.5.0 の校正意図（notes 末尾に 3,000–4,000 字の申し送りが堆積する／topic は識別可能な幅で足りる）は「1 字＝1 バイト」の世界の見積りゆえ、バイトとして読み直せばそのまま生きる。丸めは**文字境界**で止め（サロゲート・結合文字を割らない）、切り取りマーカー `…`（3 バイト）は幅の**内側**に置く。`--handoff-latest` は件数ゆえ単位是正の外
+- **`0` を有効な端点として受け付ける** — `--notes-tail 0` / `--handoff-latest 0` 等で当該項を落とせる（旧実装は `or DEFAULT` の記法で 0 を未指定に潰していた＝**指定したのに効かない**沈黙。`is None` 判定へ是正）
+
+### Notes
+
+- 幅オプションを指定しない既定出力は、日本語データでは v1.5.0 より**狭くなる**（字→バイト）。これは是正であって退行ではない——旧挙動は閾値と違う単位で数えていた
+
 ## [1.6.0] - 2026-08-09 — 申し送りのブロック化 第二段（archive 契約・卒業・消化）と内部正規化
 
 第一段（v1.5.0）は申し送りを枠ごとのブロックに分離して「読む量」を切ったが、

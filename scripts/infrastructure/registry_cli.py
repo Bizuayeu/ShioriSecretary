@@ -43,6 +43,12 @@ from usecases.orientation import (
 # 「exit 0 なのにデータがコンテキストに載っていない」沈黙失敗になる。
 LIST_WARNING_BYTES = 200 * 1024
 
+# orientation digest がこの大きさを超えたら警告を添える。**仮置き**——出所は母体運用の
+# 実測境界（20KB 台は載った／45.8KB・103.4KB は落ちた＝閾値は 25〜39KB 圏）の安全側下限で、
+# 境界そのものはまだ特定されていない。追実測で校正する（LIST_WARNING_BYTES と同じ作法）。
+# cc-defer: 実測下限の仮置き、載る最大値が追実測で特定できたらその値へ校正する
+ORIENTATION_WARNING_BYTES = 25 * 1024
+
 
 class RegistrySpec(NamedTuple):
     """管理表 1 表分の静的仕様（SSoT）。
@@ -174,6 +180,28 @@ def _warn_if_oversized(name: str, payload: str) -> None:
     )
 
 
+def _report_orientation_size(digest: str) -> None:
+    """orientation digest の総バイトを stderr へ常時 1 行申告する（fail-open）。
+
+    `_warn_if_oversized` と違い**閾値未満でも黙らない**——安全側で黙る計器は、
+    「exit 0 なのに digest がコンテキストに載っていない」を観測させないまま通す。
+    サイズが毎枠見え続けることが、以後の絞り校正を自走させる材料になる。
+    超過時だけ、退避の可能性と絞り方（実在のオプション名）を添える。
+    stdout も exit code も変えない（digest 本文は byte 不変）。
+    """
+    size = len(digest.encode("utf-8"))
+    print(f"orientation digest: {size} bytes", file=sys.stderr)
+    if size <= ORIENTATION_WARNING_BYTES:
+        return
+    print(
+        f"WARNING: orientation digest is {size} bytes (> {ORIENTATION_WARNING_BYTES}) — "
+        "output this large can be diverted to persisted output while the command "
+        "still exits 0, leaving the digest out of the agent's context. Narrow it with "
+        "`--knowledge-latest` / `--notes-tail` / `--handoff-latest` / `--handoff-cap`.",
+        file=sys.stderr,
+    )
+
+
 def _table_size(config: Config, name: str) -> int:
     """管理表ファイルの実バイト数（不在は 0＝初回起動でも orientation は完走する）。"""
     try:
@@ -196,6 +224,8 @@ def _read_handoff_blocks(config: Config, limit: int) -> list[tuple[str, str]]:
     `pick_latest_handoffs` と共有するので、事前絞りは冪等に重なり出力は変わらない。
     不在・空は `[]`（no-op 完走）。読めない 1 ブロックで起動オリエンテーションを
     止めない（fail-open。結果が limit−1 件になるのは許容、stderr で告知する）。
+    事前スライス後の 1 件不良は次点で繰り上げ補充しない——補充ループは handoff が
+    ほぼ常に 0-3 件の現場に対して過剰（YAGNI）。
     """
     directory = handoff_dir(config)
     try:
@@ -213,6 +243,19 @@ def _read_handoff_blocks(config: Config, limit: int) -> list[tuple[str, str]]:
     return blocks
 
 
+def _option(args: Any, name: str, default: int) -> int:
+    """argparse Namespace から orientation の数値オプションを解決する（未指定のみ既定値）。
+
+    `getattr(...) or default` は falsy な `0` を未指定と同一視するため、最小方向の
+    端点指定が最大側の既定に化けていた（絞るためのオプションが全通しの穴になる）。
+    `is None` で分岐すれば `0` は UseCase の「非正＝全捨て」ゲートへそのまま届く。
+    argparse 側は `default=DEFAULT_*` を持つので CLI 経由では常に値が来る——本ヘルパーは
+    `args=None` 直呼び（テスト・プログラム呼び出し）のためのガード。
+    """
+    value = getattr(args, name, None)
+    return default if value is None else value
+
+
 def run_orientation(config: Config, args: Any = None) -> int:
     """起動時オリエンテーション用の絞り込みダイジェストを stdout に一撃出力する。
 
@@ -220,20 +263,25 @@ def run_orientation(config: Config, args: Any = None) -> int:
     載らないまま exit 0 する沈黙失敗を起こしていた。射影は UseCase の純ロジック、
     ここは stores（REGISTRY_SPEC のキー順＝表追加に自動追従）と実ファイルサイズ・
     handoff ブロックを注入する薄い配線に留める（read-only ゆえ git にも触れない）。
+    出来上がった digest のサイズは stderr へ自己申告する——測れるのは組み上がった後だけ
+    なので、build() の呼び出し元が計器を持つのが責務上も正しい（射影は純関数のまま）。
     """
     listers = {name: registry_service(config, name) for name in REGISTRY_SPEC}
     sizes = {name: _table_size(config, name) for name in REGISTRY_SPEC}
-    handoff_latest = getattr(args, "handoff_latest", None) or DEFAULT_HANDOFF_LATEST
-    print(
-        OrientationService(listers, sizes).build(
-            handoffs=_read_handoff_blocks(config, handoff_latest),
-            notes_tail=getattr(args, "notes_tail", None) or DEFAULT_NOTES_TAIL,
-            topic_width=getattr(args, "topic_width", None) or DEFAULT_TOPIC_WIDTH,
-            handoff_latest=handoff_latest,
-            handoff_cap=getattr(args, "handoff_cap", None) or DEFAULT_HANDOFF_CAP,
-            knowledge_category=getattr(args, "knowledge_category", None),
-        )
+    handoff_latest = _option(args, "handoff_latest", DEFAULT_HANDOFF_LATEST)
+    digest = OrientationService(listers, sizes).build(
+        handoffs=_read_handoff_blocks(config, handoff_latest),
+        notes_tail=_option(args, "notes_tail", DEFAULT_NOTES_TAIL),
+        topic_width=_option(args, "topic_width", DEFAULT_TOPIC_WIDTH),
+        handoff_latest=handoff_latest,
+        handoff_cap=_option(args, "handoff_cap", DEFAULT_HANDOFF_CAP),
+        knowledge_category=getattr(args, "knowledge_category", None),
+        # 既定 None（全件）ゆえ `_option` は通さない——0 と未指定の区別は
+        # getattr の default=None がそのまま担う（knowledge_category と同じ流儀）
+        knowledge_latest=getattr(args, "knowledge_latest", None),
     )
+    print(digest)
+    _report_orientation_size(digest)
     return EXIT_OK
 
 

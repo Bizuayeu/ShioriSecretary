@@ -90,16 +90,18 @@ source /tmp/shiori-secretary.env.sh && \
   (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py orientation)
 ```
 
+   （**digest の総バイトは毎回 stderr に `orientation digest: N bytes` として出る**〔v1.8.0〕。25,600 バイトを超えると退避の可能性と絞りオプションを添えた警告が付く——**その枠は exit 0 でも digest がコンテキストに載っていない可能性がある**。幅は**自分のデータで校正する**もので、初期値は上のとおり素の既定〔4000B / 120B / 3 件 / 8000B〕。警告が出るまで絞らなくてよく、出たら下の幅オプションで下げる）
+
    ダイジェストが答えるのは「今どうなっているか」であり、表は相互参照する——「tasks をどう扱うか」の方針（自由時間の運用規範・grant 条件・行使してよい能力）は knowledge / abilities 側にあり、伴走の文脈は profile / goals / steps 側にある：
 
    - **individuals（誰と）** — 相手の tone / honorific / taboo、疎遠な相手の鮮度（全文）
-   - **tasks（何を頼まれ）** — `id | status | priority | due_date | title` の一行要約（全件）＋ active（open / in_progress / blocked）の notes 末尾（既定 4000 字）。**done の notes は載らない**
-   - **knowledge（どう判断するか）** — `id | topic` の索引のみ（`content` は載らない）。判断方針・運用規範（**自由時間の使い方・actionability ゲート・grant 条件**）の在り処を索引で掴む
+   - **tasks（何を頼まれ）** — `id | status | priority | due_date | title` の一行要約（全件）＋ active（open / in_progress / blocked）の notes 末尾（既定 4000 バイト）。**done の notes は載らない**。長い notes は handoff 分離前の legacy 堆積ゆえ末尾だけを見て、全文が要るときは `tasks get --key`
+   - **knowledge（どう判断するか）** — `id | topic` の索引のみ（`content` は載らない）。判断方針・運用規範（**自由時間の使い方・actionability ゲート・grant 条件**）の在り処を索引で掴む。絞った場合は見出しの `N of M` が母数を開示するので、落ちた分は `--knowledge-category` か `knowledge get --key` で引く
    - **abilities（何ができるか）** — 行使できる能力カタログ（`trigger` / `skill_path` / `guidance`、全文）
    - **profile（誰に仕えるか）** — principal の人物理解（特性・励まされ方・決断スタイル、全文）。応答の温度と提案の出し方をここに合わせる（パーソナライズ＝P軸）
    - **goals / steps（何に伴走するか）** — active な目標と期限近接・滞留中のステップ（全文。伴走＝A軸、プロマネの巻き取り）
    - **role（今日の自分の顔）** — P×A から決定論導出された役割（secretary/butler/coach/anego）。演じ方は SecretaryRole「役割の進化」節に従う（役割を自称で膨らませない）
-   - **handoff（前枠からの申し送り）** — 最新ブロックの本文（既定 3 ブロック・各 8000 字上限）
+   - **handoff（前枠からの申し送り）** — 最新ブロックの本文（既定 3 ブロック・各 8000 バイト上限）。**丸めは頭から**なので長いブロックは末尾が切れる——`…` が出ていたらファイル名を `Read` して原本を読む
 
    knowledge の索引や tasks の要約で当たりを付けたら、**必要になった時にだけ**個別に本文を引く（表ごとの `list` ではなく `get --key`）：
 
@@ -109,7 +111,18 @@ source /tmp/shiori-secretary.env.sh && \
    python scripts/main.py knowledge get --key <id>)
 ```
 
-   ダイジェストが足りない／重すぎる時は `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` で幅を調節する（既定 4000 / 120 / 3 / 8000）。
+   ダイジェストが足りない／重すぎる時は `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` / `--knowledge-latest` で幅を調節する（既定 4000B / 120B / 3 ブロック / 8000B / 全件。**幅の単位は UTF-8 バイト**で丸めは文字境界＝退避の閾値と同じ単位で数える。`--knowledge-category` で category 完全一致に絞ることもでき、併用すると絞った後の中で新しい順に効く）。
+
+   **絞る順序は実測で決める**——上の警告が出たら、まず絞って効く項を知る。母体運用（knowledge 197 件 / tasks 10 件 / handoff 2 ブロック）での実測では、**単一ノブでは目標に届かず**（最も効く `--knowledge-latest 30` 単独でも 45,802 バイト）、4 項を同時に絞って初めて 24,152 バイトに収まった：
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && \
+   python scripts/main.py orientation \
+     --knowledge-latest 30 --notes-tail 500 --handoff-latest 2 --handoff-cap 2500)
+```
+
+   （この 4 値は**母体の registry に対する実測値**であって、あなたのデータの正解ではない——自分の枠の `orientation digest: N bytes` を見て決める。**絞った分は消えるのではなく読み筋が変わる**: knowledge 索引は `latest N of M` が母数を開示、tasks の notes 全文は `tasks get --key`、handoff は**頭から**丸められるので末尾〔「★次枠がまずやること★」等〕が切れうる——切れた印 `…` が出たら見出しのファイル名を `Read` で原本ごと読む。なお `--handoff-latest` を 1 まで絞ると未消化ブロックが**名前ごと digest から消える**ので、消化・卒業のサイクルに載せたいなら 2 以上を残す）
 
 11. **自由時間（autonomous turn）の判断**。オリエンテーションを終えたら、その起動を「自律的に1ターン使うに値するか」判断する。**毎起動で機械的に発信せず、knowledge に記録された運用規範（actionability ゲート）を通す**——渡すに値する signal だけを起こす。grant（自由時間の付与等）が生きていて値する signal があれば、次の候補から **1つだけ** 能動的に進める（手順は「自由時間の能動発信（proactive-send）」節に従う）：
 

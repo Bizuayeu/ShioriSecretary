@@ -404,7 +404,16 @@ def test_role_status_coach_ignores_profile_of_others(tmp_path, capsys):
 
 # === orientation（起動時ダイジェスト）と list サイズ警告 ===
 
-from infrastructure.registry_cli import LIST_WARNING_BYTES, run_orientation
+from infrastructure.registry_cli import (
+    LIST_WARNING_BYTES,
+    ORIENTATION_WARNING_BYTES,
+    run_orientation,
+)
+from usecases.orientation import (
+    DEFAULT_HANDOFF_CAP,
+    DEFAULT_HANDOFF_LATEST,
+    DEFAULT_NOTES_TAIL,
+)
 
 _TASK = {
     "id": "T-001",
@@ -419,6 +428,8 @@ _TASK = {
 _KNOWLEDGE = {
     "id": "K-001",
     "topic": "申し送りの置き場",
+    # category は許可集合（domain._KNOWLEDGE_CATEGORIES）の値のみ通る（欠落は exit 2）
+    "category": "harness",
     "content": "CONTENT_MARKER" + "c" * 1_000,
     "created_at": "t",
     "updated_at": "t",
@@ -476,8 +487,8 @@ def test_orientation_knowledge_category_option_is_wired_through(tmp_path, capsys
     """`--knowledge-category` が CLI から UseCase まで通る（絞りの実配線）。"""
     config = _config(tmp_path)
     for kid, category, topic in (
-        ("K-001", "ops", "OPS_TOPIC"),
-        ("K-002", "billing", "BILLING_TOPIC"),
+        ("K-001", "harness", "OPS_TOPIC"),
+        ("K-002", "business", "BILLING_TOPIC"),
     ):
         run_registry_command(
             config,
@@ -490,9 +501,9 @@ def test_orientation_knowledge_category_option_is_wired_through(tmp_path, capsys
             ),
         )
     capsys.readouterr()
-    assert run_orientation(config, _ns(knowledge_category="ops")) == 0
+    assert run_orientation(config, _ns(knowledge_category="harness")) == 0
     out = capsys.readouterr().out
-    assert "1 of 2 records, category=ops" in out
+    assert "1 of 2 records, category=harness" in out
     assert "OPS_TOPIC" in out
     assert "BILLING_TOPIC" not in out
 
@@ -504,6 +515,82 @@ def test_orientation_without_category_option_is_unchanged(tmp_path, capsys):
     capsys.readouterr()
     assert run_orientation(config, _ns()) == 0
     assert "## knowledge (1 records, index: id | topic)" in capsys.readouterr().out
+
+
+def test_orientation_knowledge_latest_option_is_wired_through(tmp_path, capsys):
+    """`--knowledge-latest` が CLI から UseCase まで通る（新しい順の実配線）。"""
+    config = _config(tmp_path)
+    for kid, topic in (("K-001", "OLD_TOPIC"), ("K-002", "NEW_TOPIC")):
+        run_registry_command(
+            config,
+            "knowledge",
+            "add",
+            _ns(json=json.dumps(dict(_KNOWLEDGE, id=kid, topic=topic))),
+        )
+    capsys.readouterr()
+    assert run_orientation(config, _ns(knowledge_latest=1)) == 0
+    out = capsys.readouterr().out
+    assert "latest 1 of 2 records" in out
+    assert "NEW_TOPIC" in out
+    assert "OLD_TOPIC" not in out
+
+
+def test_zero_knowledge_latest_is_not_read_as_unset(tmp_path, capsys):
+    """`--knowledge-latest 0` は未指定（None＝全件）へ逆転せず、0 件として届く。"""
+    config = _config(tmp_path)
+    run_registry_command(config, "knowledge", "add", _ns(json=json.dumps(_KNOWLEDGE)))
+    capsys.readouterr()
+    assert run_orientation(config, _ns(knowledge_latest=0)) == 0
+    out = capsys.readouterr().out
+    assert "latest 0 of 1 records" in out
+    assert "K-001 |" not in out
+
+
+# === 0 指定は「全捨て」の端点として通る（falsy 罠の封じ、v1.7.0 Stage 1） ===
+
+
+def test_zero_notes_tail_drops_notes_instead_of_passing_them_through(tmp_path, capsys):
+    """`--notes-tail 0` は既定 4000 へ逆転せず全捨てに届く。
+
+    `getattr(...) or DEFAULT` は 0 を未指定と同一視するため、最小方向の端点を
+    指定したはずが最大側の既定に化けていた（絞るためのオプションが全通しの穴になる）。
+    """
+    config = _config(tmp_path)
+    run_registry_command(config, "tasks", "add", _ns(json=json.dumps(_TASK)))
+    capsys.readouterr()
+    assert run_orientation(config, _ns(notes_tail=0)) == 0
+    out = capsys.readouterr().out
+    assert "last 0 bytes" in out
+    assert "TAIL_MARKER" not in out
+
+
+def test_zero_topic_width_leaves_only_the_marker_in_the_knowledge_index(
+    tmp_path, capsys
+):
+    """`--topic-width 0` も同じ端点規約——索引に残るのは id と切り取りマーカーだけ。"""
+    config = _config(tmp_path)
+    run_registry_command(config, "knowledge", "add", _ns(json=json.dumps(_KNOWLEDGE)))
+    capsys.readouterr()
+    assert run_orientation(config, _ns(topic_width=0)) == 0
+    out = capsys.readouterr().out
+    assert "K-001 | …" in out
+    assert "申し送りの置き場" not in out
+
+
+def test_orientation_without_args_still_uses_the_defaults(tmp_path, capsys):
+    """`args=None` の直呼びは従来どおり既定値で完走する（後方互換の担保）。
+
+    `is None` 判定へ移しても「未指定＝既定」は変わらない——0 と未指定の区別が
+    付いただけであることを、引数オブジェクトそのものが無い経路で固定する。
+    """
+    config = _config(tmp_path)
+    run_registry_command(config, "tasks", "add", _ns(json=json.dumps(_TASK)))
+    capsys.readouterr()
+    assert run_orientation(config, None) == 0
+    out = capsys.readouterr().out
+    assert f"last {DEFAULT_NOTES_TAIL} bytes" in out
+    assert "TAIL_MARKER" in out
+    assert f"latest {DEFAULT_HANDOFF_LATEST}, cap {DEFAULT_HANDOFF_CAP} bytes" in out
 
 
 def test_orientation_does_not_trigger_sync(tmp_path):
@@ -533,6 +620,124 @@ def test_list_below_threshold_is_silent(tmp_path, capsys):
     assert run_registry_command(config, "knowledge", "list", _ns()) == 0
     assert "WARNING" not in capsys.readouterr().err
     assert LIST_WARNING_BYTES == 200 * 1024  # 閾値は orientation_report_20260809 指定
+
+
+# === orientation 出力サイズの自己申告（v1.8.0 Stage 2） ===
+
+_SNAPSHOT_TASK = dict(_TASK, notes="NOTE_A")
+
+
+# v1.7.0 の run_orientation が既定オプションで stdout へ出した全文（末尾の改行は print 由来）。
+# 計器（stderr）を足しても **stdout は 1 バイトも動かない** ことを固定する——起動時
+# オリエンテーションは秘書が毎枠読む契約面であり、計器の混入は digest そのものの汚染になる。
+# counts の実バイト数だけは改行変換で OS 依存（Windows は CRLF）なので stat() から差し込む。
+# f-string 内の role 行の波括弧は二重化（表示は 1 重）。
+def _expected_default_stdout(config: Config) -> str:
+    return f"""# orientation
+
+## role
+{{"role": "secretary", "personalize": false, "accompany": false}}
+
+## counts
+individuals: 0 records, 0 bytes
+tasks: 1 records, {config.tasks_path.stat().st_size} bytes
+knowledge: 1 records, {config.knowledge_path.stat().st_size} bytes
+abilities: 0 records, 0 bytes
+profile: 0 records, 0 bytes
+goals: 0 records, 0 bytes
+steps: 0 records, 0 bytes
+
+## individuals (0 records, full)
+[]
+
+## tasks (1 records, summary: id | status | priority | due_date | title)
+T-001 | in_progress | high | - | 見積を送る
+
+## tasks.notes (active only, last 4000 bytes)
+### T-001
+NOTE_A
+
+## knowledge (1 records, index: id | topic)
+K-001 | 申し送りの置き場
+
+## abilities (0 records, full)
+[]
+
+## profile (0 records, full)
+[]
+
+## goals (0 records, full)
+[]
+
+## steps (0 records, full)
+[]
+
+## handoff (0 blocks, latest 3, cap 8000 bytes)
+
+"""
+
+
+def _add_snapshot_records(config: Config) -> None:
+    run_registry_command(config, "tasks", "add", _ns(json=json.dumps(_SNAPSHOT_TASK)))
+    run_registry_command(config, "knowledge", "add", _ns(json=json.dumps(_KNOWLEDGE)))
+
+
+def test_orientation_always_reports_its_size_on_stderr(tmp_path, capsys):
+    """digest の総バイトを毎回 stderr へ 1 行申告する（閾値未満でも黙らない）。
+
+    「exit 0 なのにデータがコンテキストに載っていない」は自己観測できないと直せない
+    ——サイズが毎枠見え続けることが、以後の絞り校正の自走材料になる。
+    """
+    config = _config(tmp_path)
+    _add_snapshot_records(config)
+    capsys.readouterr()
+    assert run_orientation(config, _ns()) == 0
+    captured = capsys.readouterr()
+    digest_bytes = len(captured.out.encode("utf-8")) - 1  # print が足す改行を除く
+    assert f"orientation digest: {digest_bytes} bytes" in captured.err
+
+
+def test_orientation_warns_and_names_narrowing_options_when_oversized(tmp_path, capsys):
+    """閾値超は persisted 退避の可能性と、実在する絞りオプションの名指しを添える。"""
+    config = _config(tmp_path)
+    run_registry_command(config, "tasks", "add", _ns(json=json.dumps(_TASK)))
+    capsys.readouterr()
+    assert run_orientation(config, _ns(notes_tail=30_000)) == 0
+    captured = capsys.readouterr()
+    assert len(captured.out.encode("utf-8")) > ORIENTATION_WARNING_BYTES  # 前提の確認
+    assert "WARNING" in captured.err
+    for option in (
+        "--knowledge-latest",
+        "--notes-tail",
+        "--handoff-latest",
+        "--handoff-cap",
+    ):
+        assert option in captured.err
+    assert (
+        "TAIL_MARKER" not in captured.err
+    )  # 警告にレコード内容は載せない（PII 非出力）
+
+
+def test_orientation_below_threshold_reports_size_without_warning(tmp_path, capsys):
+    """小さい出力では常時 1 行だけ——計器は鳴るが警報にはならない。"""
+    config = _config(tmp_path)
+    _add_snapshot_records(config)
+    capsys.readouterr()
+    assert run_orientation(config, _ns()) == 0
+    captured = capsys.readouterr()
+    assert "orientation digest:" in captured.err
+    assert "WARNING" not in captured.err
+    # 閾値は実測境界（20KB 台は載った／45.8KB は落ちた）の安全側下限＝仮置き
+    assert ORIENTATION_WARNING_BYTES == 25 * 1024
+
+
+def test_orientation_stdout_is_byte_identical_to_v170(tmp_path, capsys):
+    """計器は stderr のみ。stdout（digest 本文）は v1.7.0 と byte 同一。"""
+    config = _config(tmp_path)
+    _add_snapshot_records(config)
+    capsys.readouterr()
+    assert run_orientation(config, _ns()) == 0
+    assert capsys.readouterr().out == _expected_default_stdout(config)
 
 
 # === handoff ブロック（申し送りの置き場）と artifacts-sync ===
@@ -621,6 +826,38 @@ def test_orientation_opens_only_the_latest_handoff_blocks(tmp_path, monkeypatch)
         "20260808T000000Z_s.md",
         "20260807T000000Z_s.md",
     ]
+
+
+def test_zero_handoff_latest_opens_no_block_file_at_all(tmp_path, monkeypatch, capsys):
+    """`--handoff-latest 0` は既定 3 へ逆転せず、ファイルを 1 つも open しない。
+
+    端点が既定に化けると「載せない」指定が「3 件読んで載せる」に反転する——
+    有界読み（表示件数に読みを合わせる契約）の下端をここで固定する。
+    """
+    config = _config(tmp_path)
+    for i in range(3):
+        _write_handoff(config, f"202608{i:02d}T000000Z_s.md", f"BODY{i}")
+    opened = _count_handoff_reads(monkeypatch, config)
+    assert run_orientation(config, _ns(handoff_latest=0)) == 0
+    out = capsys.readouterr().out
+    assert opened == []
+    assert "## handoff (0 blocks" in out
+    assert "BODY" not in out
+
+
+def test_zero_handoff_cap_drops_block_bodies_but_keeps_their_names(tmp_path, capsys):
+    """`--handoff-cap 0` も既定 8000 へ逆転せず、本文を全捨てする（端点 4 つ目）。
+
+    ブロック名は残す——「申し送りが無い」のではなく「載せない指定をした」ことが
+    読み手（秘書）に分かる形で下端を締める。
+    """
+    config = _config(tmp_path)
+    _write_handoff(config, "20260809T000000Z_s.md", "BLOCK_BODY")
+    assert run_orientation(config, _ns(handoff_cap=0)) == 0
+    out = capsys.readouterr().out
+    assert "cap 0 bytes" in out
+    assert "### 20260809T000000Z_s.md" in out
+    assert "BLOCK_BODY" not in out
 
 
 def test_bounded_handoff_read_yields_same_digest_as_full_read(tmp_path, capsys):

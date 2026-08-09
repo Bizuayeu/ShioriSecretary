@@ -4,6 +4,85 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.8.0] - 2026-08-10 — validating the allowed set, self-reporting the size, and a calibration procedure for the widths
+
+v1.7.0 corrected the **unit** of the widths, but **nobody was measuring** whether those values
+were enough on real data. Measured against the upstream operation, the default orientation
+produced 72,724 bytes, and even a narrowed call still produced 45,802 — both inside the range
+that gets diverted. The reason the miss went unnoticed is that the output size never surfaced
+anywhere observable. This release adds three things: (1) reject what should be rejected in the
+Domain, (2) make the size self-report to stderr every window, and (3) ship a procedure that
+decides the widths from measurement with that instrument — **put the instrument in place first,
+then calibrate**.
+
+### ⚠️ Breaking change (read before upgrading)
+
+**The `category` of knowledge is now closed over an allowed set of 10, and the validation fires on the read path as well.**
+If even one record carries an out-of-set category, `knowledge list` / `orientation` **fail
+entirely with exit 2** (the validation lives in the value object's `__post_init__`, so it fires
+on reads too). In particular, **the `projects` / `clients` / `procedures` examples shipped in
+`templates/KNOWLEDGE.template.json` up to v1.7.0 are all outside the allowed set** — if you
+followed the template, you are almost certainly affected.
+
+**Migration (perform before upgrading):**
+
+1. Count your current categories (the registry lives at `<registry_dir>/knowledge/KNOWLEDGE.json`):
+
+   ```bash
+   python -c "import json,collections,sys; print(collections.Counter(r['category'] for r in json.load(open(sys.argv[1],encoding='utf-8'))['records']))" <registry_dir>/knowledge/KNOWLEDGE.json
+   ```
+
+2. Rewrite each out-of-set value **by hand** into one of the 10 (no bulk-replace script is
+   shipped: a mechanical substitution breaks the correspondence of meaning — reclassifying is a
+   judgment, not a conversion). Rough guide: a general rule of practice → `method` / knowledge of
+   the target domain → `domain-insight` / operating the tooling itself → `harness` / a recorded
+   observation → `observation` / a look-up → `research` / the result of analyzing data →
+   `analysis` / a design decision → `design` / a principle or stance → `philosophy` / commercial
+   know-how → `business` / a settled decision → `decision`
+3. Confirm `orientation` exits 0 after the rewrite, then upgrade
+
+If you were carrying a subject axis (a project, a client, …) in `category`, move it to the
+`[subject] body` prefix on `topic` (e.g. `[accounting] monthly close procedure`) — **`category`
+is reserved for the axis of the type of knowing**, and the two axes are not mixed.
+
+### Added
+
+- **Allowed-set validation for knowledge `category` (Domain)** — only the 10 pass: `observation` / `research` / `harness` / `domain-insight` / `analysis` / `design` / `method` / `philosophy` / `business` / `decision`. **The error message enumerates the allowed set** — the asymmetry with Identity / Goal (which report only the invalid value) is deliberate: since the party being rejected is a self-driving agent, the error text itself must carry enough information to pick the right word
+- **Self-reported orientation output size (Interface)** — every run writes `orientation digest: N bytes` to stderr as **a single line, always**. Above `ORIENTATION_WARNING_BYTES = 25 * 1024` it appends the diversion risk and names the four narrowing options. The threshold is **provisional** (the conservative lower bound of the upstream operation's measured 25–39KB boundary, marked with `cc-defer` as awaiting calibration). Unlike `_warn_if_oversized` (the 200KB warning on list), **it does not go quiet below the threshold** — an instrument that stays silent on the safe side lets "exit 0 but the digest never landed" pass unobserved. stdout stays byte-identical and the exit code is unchanged (fail-open)
+
+### Changed
+
+- **`Knowledge.from_dict` now requires `category` (backward incompatible)** — the old implementation silently turned a missing value into `"general"` via `d.get("category", "general")` (**a fail-open that generated an out-of-set value in silence**). It is now `d["category"]`, so **a `knowledge add` without a category exits 2**. Failing is the point: that silent `"general"` was precisely the breeding ground for proliferating classifications and spelling drift
+- **The `category` description in `templates/KNOWLEDGE.template.json`** — the old examples (`projects` / `clients` / `procedures`) were **all outside the allowed set**, so following them verbatim made `add` exit 2. Replaced with the enumeration of the 10 and "carry the subject axis in the topic prefix"
+- **A width-calibration procedure in ROUTINE_PROMPT Step 5** — the call itself **stays at the bare defaults** (a fresh install has nothing to narrow). On top of that it now documents the order in which to narrow once the warning fires, plus the upstream registry measurements as a worked example (**no single knob reached the target** — even the strongest one alone, `--knowledge-latest 30`, produced 45,802 bytes; four terms at once produced 24,152). **Those four values are measurements against the upstream data, not the right answer for yours** — decide from the `orientation digest: N bytes` of your own window
+- **Downstream documents follow** — `skills/shiori-secretary/SKILL.md` (the category constraint, the topic prefix convention, the stderr report), `DESIGN.md` §3.12 (the self-reported size, the floor that cannot be narrowed, why the allowed set is enforced on the read path), `README.md` (the option table) — all synchronized across both languages
+
+### Notes
+
+- **The topic prefix convention (zero code change)** — the subject axis of knowledge can be carried by shaping `topic` as `[subject] body`. Keep `category` for the axis of **the type of knowing** and do not mix the two. **It is a convention, not an enforcement** — neither the code nor the data requires the prefix, and when to start and whether to backfill existing topics is the secretary's discretion. Extending the schema with `tags` would start demanding a narrowing implementation as well, so it is kept in reserve as the escalation target for when the prefix proves insufficient
+- **The floor that cannot be narrowed** — what remains with every knob at its minimum (the full small tables plus the one-line task summaries) measured 11,629 bytes upstream = 45% of the target. As goals / steps fill up the floor rises further, and at that point the small tables need a projection of their own (DESIGN §3.12)
+- **An existing user's routine body is a snapshot taken at registration time** — reflecting the ROUTINE_PROMPT changes requires re-registering the routine
+
+## [1.7.0] - 2026-08-09 — meshing orientation with real-world data (byte-based widths, count narrowing)
+
+The bounded projection introduced in v1.5.0 **counted its widths in characters**. The diversion
+threshold is in bytes, so on Japanese-dominant data the effective width inflated by the ratio of
+1 character ≈ 2.47 bytes, the defaults emitted 99,037 bytes, and the silent failure recurred.
+**Correct the unit without moving the numbers.**
+
+### Added
+
+- **`orientation --knowledge-latest N`** — caps the knowledge index at the **N newest entries** (ids are assigned in date order, so a larger id is newer). The heading reads `latest N of M, newest last` — **what is selected is the newest, what is ordered stays ascending by id** (the reading convention of the index is untouched; only the population shrinks), and that twist is resolved by **disclosing the reading** rather than by re-sorting. Combined with `--knowledge-category` it **narrows first and takes latest second**. Unspecified by default = all (backward compatible, heading unchanged)
+
+### Changed
+
+- **Widths corrected to UTF-8 bytes (`--notes-tail` / `--topic-width` / `--handoff-cap`)** — counted in the same unit as the diversion threshold. **Only the unit was corrected; the numbers are unchanged** — the calibration intent of v1.5.0 (handovers pile up in the last 3,000–4,000 characters of notes / a topic needs only an identifiable width) was an estimate from a "1 character = 1 byte" world, so it survives intact when re-read as bytes. Rounding stops at **character boundaries** (surrogates and combining marks are never split) and the truncation marker `…` (3 bytes) sits **inside** the width. `--handoff-latest` is a count and therefore outside the unit correction
+- **`0` is accepted as a valid endpoint** — `--notes-tail 0` / `--handoff-latest 0` and friends can now drop the corresponding term (the old `or DEFAULT` idiom collapsed 0 into "unspecified" = **you set it and nothing happened**, in silence. Corrected to an `is None` test)
+
+### Notes
+
+- With no width options given, the default output is **narrower** than v1.5.0 on Japanese data (characters → bytes). That is a correction, not a regression — the old behavior counted in a different unit than the threshold
+
 ## [1.6.0] - 2026-08-09 — blocking the handover, stage two (the archive contract, graduation, digestion) and internal normalization
 
 Stage one (v1.5.0) separated the handover into per-window blocks and cut "the amount read",

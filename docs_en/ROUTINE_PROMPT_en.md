@@ -90,16 +90,18 @@ source /tmp/shiori-secretary.env.sh && \
   (cd "$SHIORI_INSTALL_DIR" && python scripts/main.py orientation)
 ```
 
+   (**The total byte size of the digest is written to stderr on every run as `orientation digest: N bytes`** [v1.8.0]. Above 25,600 bytes a warning is appended with the diversion risk and the narrowing options — **in that window the digest may not have landed in context even though the exit code was 0**. Widths are meant to be **calibrated against your own data**; the starting point is the bare defaults above [4000B / 120B / 3 blocks / 8000B]. You do not need to narrow anything until the warning fires; when it does, lower the widths with the options below.)
+
    What the digest answers is "how things stand now", and the tables cross-reference each other — the policy for "how to handle tasks" (the free-time operating norms, grant conditions, abilities permitted to exercise) lives on the knowledge / abilities side, and the context for accompaniment lives on the profile / goals / steps side:
 
    - **individuals (with whom)** — the counterpart's tone / honorific / taboo, the freshness of estranged contacts (full text)
-   - **tasks (what was requested)** — the one-line summary `id | status | priority | due_date | title` (all records) plus the notes tail of active records (open / in_progress / blocked, 4000 chars by default). **The notes of done tasks are not included**
-   - **knowledge (how to judge)** — the `id | topic` index only (`content` is not included). Use the index to grasp where the judgment policy and operating norms (**how to use free time, the actionability gate, grant conditions**) live
+   - **tasks (what was requested)** — the one-line summary `id | status | priority | due_date | title` (all records) plus the notes tail of active records (open / in_progress / blocked, 4000 bytes by default). **The notes of done tasks are not included**. Long notes are legacy accumulation from before the handoff split, so read only the tail and use `tasks get --key` when you need the full text
+   - **knowledge (how to judge)** — the `id | topic` index only (`content` is not included). Use the index to grasp where the judgment policy and operating norms (**how to use free time, the actionability gate, grant conditions**) live. When narrowed, the `N of M` in the heading discloses the population, so pull what dropped out with `--knowledge-category` or `knowledge get --key`
    - **abilities (what can be done)** — the catalog of exercisable abilities (`trigger` / `skill_path` / `guidance`, full text)
    - **profile (whom you serve)** — person understanding of the principal (traits, how they like to be encouraged, decision style, full text). Match the temperature of your responses and the way you make proposals to this (personalization = the P axis)
    - **goals / steps (what you accompany)** — active goals and the steps near their deadline or stalled (full text; accompaniment = the A axis, picking up the project management)
    - **role (today's own face)** — the role deterministically derived from P×A (secretary/butler/coach/anego). How to play it follows the SecretaryRole "Role evolution" section (do not inflate the role by self-attribution)
-   - **handoff (the handover from previous windows)** — the body of the latest blocks (3 blocks by default, each capped at 8000 chars)
+   - **handoff (the handover from previous windows)** — the body of the latest blocks (3 blocks by default, each capped at 8000 bytes). **Rounding happens from the head**, so a long block loses its tail — if a `…` appears, `Read` the file name and read the original
 
    Once the knowledge index or the task summaries give you a lead, pull the body individually **only when you need it** (`get --key`, not a per-table `list`):
 
@@ -109,7 +111,18 @@ source /tmp/shiori-secretary.env.sh && \
    python scripts/main.py knowledge get --key <id>)
 ```
 
-   When the digest is too thin or too heavy, adjust the widths with `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` (defaults 4000 / 120 / 3 / 8000).
+   When the digest is too thin or too heavy, adjust the widths with `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` / `--knowledge-latest` (defaults 4000B / 120B / 3 blocks / 8000B / all). **Widths are counted in UTF-8 bytes** and rounded at character boundaries = counted in the same unit as the diversion threshold. `--knowledge-category` narrows by exact category match, and combined with latest it narrows first and takes the newest second.
+
+   **Decide the narrowing order by measurement** — when the warning above fires, first find out which term actually pays. Measured against the upstream operation's registry (197 knowledge / 10 tasks / 2 handoff blocks), **no single knob reached the target** (even the strongest one alone, `--knowledge-latest 30`, still produced 45,802 bytes); only narrowing four terms at once brought it to 24,152 bytes:
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && \
+   python scripts/main.py orientation \
+     --knowledge-latest 30 --notes-tail 500 --handoff-latest 2 --handoff-cap 2500)
+```
+
+   (These four values are **measurements against the upstream registry**, not the right answer for your data — decide from the `orientation digest: N bytes` of your own window. **What is narrowed does not disappear; the reading path changes**: the knowledge index discloses its population as `latest N of M`, the full notes are at `tasks get --key`, and handoff is rounded **from the head** so the tail (e.g. "★ what the next window should do first ★") may be cut — when the `…` marker appears, `Read` the file name in the heading and read the original. Note also that narrowing `--handoff-latest` down to 1 makes undigested blocks **disappear from the digest name and all**, so keep it at 2 or more if you want them to stay in the digestion-and-graduation cycle.)
 
 11. **Judge free time (the autonomous turn).** Once orientation is done, judge whether this startup is "worth spending one autonomous turn on". **Do not send mechanically on every startup; pass through the operating norm recorded in knowledge (the actionability gate)** — raise only signals worth conveying. If a grant (the conferring of free time, etc.) is live and there is a signal worth it, advance **just one** of the following candidates actively (the procedure follows the "Proactive outbound during free time (proactive-send)" section):
 
