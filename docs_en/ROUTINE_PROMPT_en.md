@@ -116,6 +116,14 @@ source /tmp/shiori-secretary.env.sh && \
    - actively push a task near its deadline / a continuing task on idle exit (proactive-send, under a grant)
    - **an accompaniment nudge for steps near their deadline or stalled** (when coach/anego: asking about progress, proposing the next step; if a profile exists, match the temperature to the person's traits)
    - crystallize recent conversation into knowledge (a digest for your nighttime self)
+   - **digest the undigested handoff** — reread the handoff blocks from previous windows, crystallize the reusable operational knowledge into knowledge, then graduate the blocks you finished crystallizing with `handoff-archive` (**only as many as one turn can handle**; the rereading starts from the latest blocks that appeared in orientation):
+
+```bash
+source /tmp/shiori-secretary.env.sh && \
+  (cd "$SHIORI_INSTALL_DIR" && \
+   python scripts/main.py handoff-archive 20260809T131500Z_session-xxxxxxxx.md)
+```
+
    - a freshness check of individuals (caring about an estranged contact)
 
    If there is no grant / no signal worth it / no free-time policy recorded in knowledge yet, **do not send autonomously; stick to inbound responses** (pass through to the Step 6 watch loop). Growing the free-time operating norm itself into knowledge is also a legitimate use of this autonomous turn (throw signal, not noise = the parental gate).
@@ -235,7 +243,7 @@ source /tmp/shiori-secretary.env.sh && \
       - **profile (whom you serve)**: person understanding of the principal (and related parties). Pull it before accompanying, proposing, or encouraging, to match the temperature. Interpretations obtained from divination / personality tests / dialogue are `add`-ed **with the person's explicit consent** (method required), and updated when dialogue reveals a miss (see SecretaryRole "Listening for personalization").
       - **goals / steps (what you accompany)**: goals and their reverse-planned steps. Verbalize a goal in dialogue before `goals add`, then decompose backward from target_date with `steps add`. Update the status of steps at every progress conversation, and use deadline proximity / stalling as material for accompaniment nudges (picking up the project management; see SecretaryRole "Accompaniment policy").
       - **When `registry_sync` is enabled, `add`/`remove` embed a commit & push to the fixed branch** (event-driven, no force, non-ff is taken in via rebase). There is no need to run a separate push step. On push failure (transient), local commits accumulate and are re-sent collectively at the next update or at the next startup's fetch.
-      - **Write the handover (the handoff to your next self) into a handoff block — do not append long text to a task's `notes`**: appending to notes stretches a single record linearly until it grows too large to read at startup (the main cause of the silent failure in Step 5). At the end of the window, `Write` `$SHIORI_REGISTRY_DIR/artifacts/handoff/<UTC datetime>_<session_id>.md` (e.g. `20260809T131500Z_session-xxxxxxxx.md`) and send it with `artifacts-sync` — **the window itself becomes the block boundary**, and the next window's `orientation` reads them newest-first. The body format is free (schemaless, DESIGN §3.10/§3.12). All that may remain in notes is a single current-position pointer line saying "the handover is in handoff". **The output-leak scan discipline applies to handoff just the same** (do not write tokens / env var names / absolute paths).
+      - **Write the handover (the handoff to your next self) into a handoff block — do not append long text to a task's `notes`**: appending to notes stretches a single record linearly until it grows too large to read at startup (the main cause of the silent failure in Step 5). At the end of the window, `Write` `$SHIORI_REGISTRY_DIR/artifacts/handoff/<UTC datetime>_<session_id>.md` (e.g. `20260809T131500Z_session-xxxxxxxx.md`) and send it with `artifacts-sync` — **the window itself becomes the block boundary**, and the next window's `orientation` reads them newest-first. The body format is free (schemaless, DESIGN §3.10/§3.12). All that may remain in notes is a single current-position pointer line saying "the handover is in handoff". **The output-leak scan discipline applies to handoff just the same** (do not write tokens / env var names / absolute paths). **Blocks moved to `handoff/archive/` with `handoff-archive` no longer appear in orientation** (they merely leave the reading path; the files do not disappear) — that is the graduation destination for blocks whose digestion is finished, not a place to tuck away blocks before digesting them.
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \

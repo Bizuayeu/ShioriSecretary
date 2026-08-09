@@ -4,6 +4,35 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.6.0] - 2026-08-09 — blocking the handover, stage two (the archive contract, graduation, digestion) and internal normalization
+
+Stage one (v1.5.0) separated the handover into per-window blocks and cut "the amount read",
+but **the population keeps growing** — blocks only pile up, and there was no cycle of
+digestion (crystallizing reusable operational knowledge into knowledge) and graduation
+(taking them out of the reading path). On top of that, "orientation does not read
+`handoff/archive/`" was merely a side effect of the implementation (the non-recursive
+`glob("*.md")`) — implicit behavior that a single change to recursive reading would silently
+break. **Pin the contract with tests, then place graduation and digestion on top of it with
+minimal code.**
+
+### Added
+
+- **The `handoff-archive <name>...` subcommand** — moves handover blocks whose digestion is finished into `handoff/archive/` and commits & pushes them through the existing `artifacts-sync` path (no new git code; git picks it up as a rename = history is not severed). **Validate all, then move all**, so no partial success is created — a name containing path components (traversal), a missing block, or an existing same-named file in archive moves nothing and exits 2. **There is no bulk sweep (`--before <date>` etc.)**: a mechanical archive that skips digestion causes the original traces to exit unintentionally, so graduation is always by explicit naming, receiving the secretary's digestion judgment
+- **`orientation --knowledge-category <cat>`** — narrows the knowledge index by exact category match. The heading becomes `knowledge (N of M records, category=<cat>, index: id | topic)` — **the M−N records dropped by narrowing remain in the `of M`** (nothing is reduced silently). 0 matches still exits 0 (narrowing is observation, not validation). With the option unset, the output is byte-identical to v1.5.0
+- **The digestion workflow as a procedure (ROUTINE_PROMPT step 11)** — "reread the undigested handoff, crystallize reusable operational knowledge into knowledge, then graduate the crystallized blocks with `handoff-archive`" is added to the candidates for free time (the autonomous turn), under the existing actionability gate and only as many as one turn can handle. **The selection of what to crystallize and what to graduate stays with the secretary's judgment** — what the code holds is only the move and the reading path
+
+### Changed
+
+- **Promotion of the archive contract (implicit implementation behavior → a tested contract)** — "orientation reads **only the `*.md` directly under `handoff/`** (no subdirectories, no non-`.md`)" is pinned by a regression test. The receptacle for graduation is the "outside of the reading path" that this non-recursive read creates, and it is not left as a promise made in documentation alone. DESIGN §3.12 (the SSoT for startup orientation) gains the contract, graduation, and category narrowing
+- **Path resolution centralized into `Config.artifacts_path`** — the local derivation in `registry_cli` is removed (the same shape as the `*_path` property family)
+- **Bounded reading of handoff** — instead of opening every block and then selecting, only the top `--handoff-latest` blocks in descending name order are opened (**the output is unchanged**, and read I/O no longer grows in proportion as blocks pile up)
+
+### Notes
+
+- Every change is a backward-compatible **addition** (an option, a subcommand, a property). That orientation's default output is byte-identical to v1.5.0 is pinned by a snapshot test
+- Graduated blocks **do not disappear** (they remain in `handoff/archive/` and in the git history). The goal is to cut the amount read; the inviolability of the append-only ledger is preserved
+- Because steps 11 / 14 changed, delivering this to production **requires re-registering the cloud routine's body** (repo edits alone do not reach it)
+
 ## [1.5.0] - 2026-08-09 — countering the silent failure of startup orientation (orientation) and blocking the handover (stage one)
 
 Reading a bloated registry at startup pushed the output past the harness limit and got it

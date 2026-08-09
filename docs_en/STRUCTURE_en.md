@@ -163,7 +163,8 @@ ShioriSecretary/
     │   └── WAL.jsonl                  # WAL (the say-do-consistency intent log + the last 24h of short-term memory, when registry_sync is enabled)
     └── artifacts/                     # the secretary's artifacts layer (unstructured, schemaless, §3.10). Persistent because accumulation is its essence
         ├── handoff/                   # handover blocks (the window is the boundary, §3.12). Only the location and naming are standardized
-        │   └── <UTC datetime>_<session_id>.md   # e.g. 20260809T131500Z_session-xxxxxxxx.md (lexicographic descending = newest first)
+        │   ├── <UTC datetime>_<session_id>.md   # e.g. 20260809T131500Z_session-xxxxxxxx.md (lexicographic descending = newest first)
+        │   └── archive/               # graduation destination for digested blocks (created at runtime by `handoff-archive`). Outside orientation's reading path
         └── <artifact>.{json,md} …       # composition, naming, and indexing are the secretary's judgment (no CRUD/WAL/schema = the world of importance)
 ```
 
