@@ -93,7 +93,7 @@ source /tmp/shiori-secretary.env.sh && \
    What the digest answers is "how things stand now", and the tables cross-reference each other — the policy for "how to handle tasks" (the free-time operating norms, grant conditions, abilities permitted to exercise) lives on the knowledge / abilities side, and the context for accompaniment lives on the profile / goals / steps side:
 
    - **individuals (with whom)** — the counterpart's tone / honorific / taboo, the freshness of estranged contacts (full text)
-   - **tasks (what was requested)** — the one-line summary `id | status | priority | due_date | title` (all records) plus the notes tail of open/in_progress records (4000 chars by default). **The notes of done tasks are not included**
+   - **tasks (what was requested)** — the one-line summary `id | status | priority | due_date | title` (all records) plus the notes tail of active records (open / in_progress / blocked, 4000 chars by default). **The notes of done tasks are not included**
    - **knowledge (how to judge)** — the `id | topic` index only (`content` is not included). Use the index to grasp where the judgment policy and operating norms (**how to use free time, the actionability gate, grant conditions**) live
    - **abilities (what can be done)** — the catalog of exercisable abilities (`trigger` / `skill_path` / `guidance`, full text)
    - **profile (whom you serve)** — person understanding of the principal (traits, how they like to be encouraged, decision style, full text). Match the temperature of your responses and the way you make proposals to this (personalization = the P axis)
