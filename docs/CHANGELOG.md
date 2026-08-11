@@ -4,6 +4,39 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.10.0] - 2026-08-11 — 蓋の無い表を残さない（subjects / steps の索引化・goals の cap）
+
+v1.9.0 は蓋の無い側から 3 表（individuals / abilities / profile）を可動域に入れたが、**subjects /
+goals / steps の 3 表には処方が無いまま**残っていた。処方の無い表は、育つまで無害に見えて、育った枠で
+沈黙失敗（データがコンテキストに載らないまま exit 0）を再発させる側になる。本版の目標は目先のサイズ削減
+ではなく **「8 表すべてに処方があり、digest のサイズが構造的に有界」**な状態で、これは goals / steps を
+蓋なしで残したままでは証明されない。処方は表の性質で決まる——**1 レコードが長い表には cap、レコード数が
+増える表には索引または件数絞り**。表と処方の対応は **DESIGN §3.12 の 8 行表が SSoT**。
+
+### Added
+
+- **`orientation --goals-cap N`** — goals の `notes` をバイト上限で丸める（`--profile-cap` / `--abilities-cap` と同型、`_CAP_FIELDS` へ 1 行）。既定は未指定＝全文、見出しに `full, notes cap N bytes` として開示。goals は**件数が少なく本文が長い**側なので処方は cap
+- **`orientation --steps-latest N`** — steps 索引を新しい順 N 件に絞る（`--tasks-latest` と同型、`pick_latest_by_id` を再利用）。既定は未指定＝全件、見出しは `latest N of M, newest last`。**0 は「全捨て」**で未指定へ逆転しない（判定は `is not None`、既存 cap ノブと同じ規約）
+
+### Changed
+
+- **subjects の索引化（全文 JSON → `id | label | aliases | status | note` の一行索引）** — 語彙は `subjects add` で育つ＝**件数が増える表**なので、処方は cap ではなく索引にした（cap は 1 レコードの長さにしか効かない）。全文 JSON は `created_at` / `updated_at` という**この用途で価値ゼロの数十バイト**を毎レコード運んでいた。**件数絞りは付けない**——この表は「どの主題で knowledge を引くか」を選ぶ一覧なので母数を減らすと選べない語が出る。絞るのは行あたりの重さだけで、丸まるのは `note` 列（幅は `knowledge` の `topic` 列の既定 `DEFAULT_TOPIC_WIDTH` に揃えた＝**新しい数値を発明していない**）。`aliases` は `/` 連結・空は `-`（列が消えると桁がずれて誤読する、`index_knowledge` と同じ流儀）
+- **steps の索引化（全文 JSON → `id | goal_id | seq | status | title` の一行索引）** — 目標からの逆算単位ゆえ**設計上 `done` が高速に溜まる**＝件数が増える表で、処方は tasks と同じ「一行＋件数絞り」。`notes` は載らない（読み筋は `steps get --key`）。**選ぶのは新しい順・並べるのは id 昇順**の捻れの解き方も tasks / knowledge と同じ（`newest last` は絞ったときだけ載せる）
+- **既定出力の変更（破壊的変更ではない）** — subjects / steps の 2 セクションの描画が変わる（v1.9.0 の索引 3 列化と同じ扱いの**仕様変更**）。**他 6 セクションは byte 同一**を退行テストで固定してある——この錠は production 変更**前**に書いて green を確認した。スキーマ・データ・exit code 契約には一切触れていない（索引化も cap も表示だけの操作）
+- **接点文書の追従** — `README.md` / `skills/shiori-secretary/SKILL.md`（orientation オプション表へ 2 種）、`DESIGN.md` §3.12（**表の性質→処方の 8 行表を SSoT として追加**・有界式・「絞れない床」の現況＝床に残るのは cap 側 4 表と tasks 一行要約）、`ROUTINE_PROMPT.md`（オプション列挙・表別の読み筋——**「小表の全文」の列挙が索引化で嘘になっていた**ので、cap 側 4 表〔individuals / abilities / profile / goals〕と索引側〔subjects / steps〕へ書き分けた）、`STRUCTURE.md`（`orientation.py` の射影内容）。日英とも同期
+
+### 移行（破壊的変更ではないが読み方が変わる）
+
+1. **subjects / steps を全文前提で読んでいた運用は読み替える** — 索引の行に載らない項目（subjects の `created_at` / `updated_at`、steps の `notes`）は `subjects get --key` / `steps get --key` で引く。**データは何も失われていない**——落ちたのは描画であって記録ではない
+2. **`--steps-latest` で絞った枠は母数を見出しで確かめる** — `latest N of M` の M が全件数を開示するので、絞りで落ちた分の存在は画面から消えない
+3. **自環境での校正は v1.9.0 で敷いた四段手順に従う**（測る → 単一ノブで効きを知る → 併用 → 再測定）——手順の SSoT は `ROUTINE_PROMPT.md` の該当節で、本版はそこへ新ノブ 2 種を合流させただけ。**どの値まで絞るかは自分のデータの実測から決める**（registry の中身は運用主体ごとに違うので、他所で効いた値はあなたの正解ではない）
+4. **稼働中の cloud routine を持つ場合は prompt body の再登録が必要** — 既存 routine の body は登録時 snapshot ゆえ、ROUTINE_PROMPT の変更（新オプションの案内・subjects / steps の読み筋）はリポ更新だけでは本番へ届かない。**再登録しなくても壊れない**（新ノブは未指定＝全文・全件で、旧 body の呼び出しはそのまま動く）——届かないのは案内だけである
+
+### Notes
+
+- **`cc-defer` を 1 つも積んでいない** — 本版の目標が「蓋の無い表を残さない」である以上、蓋の無い表を台帳に積んで先送りすると目標そのものが未達になる
+- **母体（TelegramSecretary）の採用値は配らない** — 配布版は「値でなく校正方法を配る」（v1.9.0 で確立した配布三則(1)）。同じ機構に対し、母体は実測値を prompt body へ焼き、配布版は既定（蓋なし）のまま四段手順を配る——扱いが非対称なのは仕様である
+
 ## [1.9.0] - 2026-08-11 — 主題の軸（8 表目）・蓋の無い表への上限ノブ・書き込み口の fail-closed
 
 v1.8.0 は測る装置（stderr のサイズ申告）を置いたが、**絞れるのは knowledge 索引・notes 末尾・

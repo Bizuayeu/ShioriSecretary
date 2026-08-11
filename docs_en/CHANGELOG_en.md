@@ -4,6 +4,42 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.10.0] - 2026-08-11 — leaving no table without a lid (indexing subjects / steps, a cap for goals)
+
+v1.9.0 brought three tables (individuals / abilities / profile) of the lidless side into the movable
+range, but **three tables — subjects, goals and steps — were left with no prescription at all**. A table
+without a prescription looks harmless until it grows, and then becomes the one that brings the silent
+failure back (the data never landing in context while the command exits 0). The goal of this release is not
+an immediate size reduction but the state where **all 8 tables carry a prescription and the size of the
+digest is structurally bounded** — which cannot be proven while goals / steps stay lidless. The
+prescription follows from the nature of the table: **a cap for a table whose single record is long, an
+index or count narrowing for a table whose record count grows**. The table-to-prescription mapping is
+**SSoT in the 8-row list of DESIGN §3.12**.
+
+### Added
+
+- **`orientation --goals-cap N`** — truncates the `notes` of goals at a byte limit (the same shape as `--profile-cap` / `--abilities-cap`, one line added to `_CAP_FIELDS`). Unset by default = full text, disclosed in the heading as `full, notes cap N bytes`. goals is on the **few records, long bodies** side, so its prescription is a cap
+- **`orientation --steps-latest N`** — narrows the steps index to the N newest (the same shape as `--tasks-latest`, reusing `pick_latest_by_id`). Unset by default = all records; the heading reads `latest N of M, newest last`. **0 means "drop everything"** and does not flip back to unset (the decision is `is not None`, the same convention as the existing cap knobs)
+
+### Changed
+
+- **Indexing subjects (full JSON → the one-line index `id | label | aliases | status | note`)** — the vocabulary grows through `subjects add` = **a table whose count grows**, so the prescription is an index rather than a cap (a cap bites only on the length of a single record). The full JSON carried `created_at` / `updated_at`, **tens of bytes of zero value for this purpose**, on every record. **No count narrowing is added** — this is the list from which you choose "by which subject to retrieve knowledge", so reducing the population would leave words you cannot pick. What is narrowed is only the per-row weight, and the truncated column is `note` (its width is aligned with the default `DEFAULT_TOPIC_WIDTH` of knowledge's `topic` column = **no new number was invented**). `aliases` is joined with `/` and empty shows as `-` (a vanishing column shifts the reading and causes misreads — the same manner as `index_knowledge`)
+- **Indexing steps (full JSON → the one-line index `id | goal_id | seq | status | title`)** — being the unit of backward planning from a goal, **`done` piles up fast by design** = a table whose count grows, so its prescription is the same "one line + count narrowing" as tasks. `notes` is not included (the reading path is `steps get --key`). The twist of **selecting the newest while ordering ascending by id** is resolved the same way as in tasks / knowledge (`newest last` appears only when narrowed)
+- **A change of the default output (not a breaking change)** — the rendering of two sections, subjects and steps, changes (a **specification change**, treated the same as the three-column index of v1.9.0). **The other 6 sections stay byte-identical**, fixed by a regression test — that lock was written **before** the production change and confirmed green. Nothing in the schema, the data, or the exit-code contract was touched (both indexing and caps are display-only operations)
+- **Follow-through in the contact documents** — `README.md` / `skills/shiori-secretary/SKILL.md` (two options added to the orientation option table), `DESIGN.md` §3.12 (**the 8-row table of nature → prescription added as SSoT**, the boundedness formula, and the current state of "the floor that cannot be narrowed" = what remains in the floor is the four capped tables plus the one-line task summaries), `ROUTINE_PROMPT.md` (the option enumeration and the per-table reading — **the enumeration of "the full text of the small tables" had been made false by the indexing**, so it was rewritten into the four capped tables [individuals / abilities / profile / goals] and the index side [subjects / steps]), `STRUCTURE.md` (what `orientation.py` projects). Synchronized in both Japanese and English
+
+### Migration (not a breaking change, but the reading changes)
+
+1. **Re-read subjects / steps if you relied on their full text** — the items that do not fit on an index row (the `created_at` / `updated_at` of subjects, the `notes` of steps) are pulled with `subjects get --key` / `steps get --key`. **No data was lost** — what dropped is the rendering, not the record
+2. **In a window narrowed with `--steps-latest`, check the population in the heading** — the M of `latest N of M` discloses the total count, so what the narrowing dropped never vanishes from the screen
+3. **Calibrate against your own environment with the four-step procedure laid down in v1.9.0** (measure → learn how much a single knob pays → combine → measure again) — the SSoT of that procedure is the corresponding section of `ROUTINE_PROMPT.md`, and this release merely merges the two new knobs into it. **How far to narrow is decided from measurements on your own data** (the contents of a registry differ per operator, so values that paid off elsewhere are not your answer)
+4. **If you run a cloud routine, the prompt body must be re-registered** — an existing routine's body is a snapshot taken at registration, so changes to ROUTINE_PROMPT (the guidance for the new options, the reading path for subjects / steps) do not reach production by updating the repository alone. **Nothing breaks if you do not re-register** (the new knobs are unset = full text, all records, and a call from an old body keeps working) — what fails to arrive is only the guidance
+
+### Notes
+
+- **Not a single `cc-defer` was added** — with "leave no table without a lid" as the goal of this release, deferring a lidless table onto the ledger would leave the goal itself unmet
+- **The upstream (TelegramSecretary) adopted values are not distributed** — the distributed edition ships "the calibration method, not the values" (rule (1) of the three distribution rules established in v1.9.0). For the same mechanism, the upstream burns measured values into its prompt body while the distributed edition keeps the defaults (no lid) and ships the four-step procedure — the asymmetry is by design
+
 ## [1.9.0] - 2026-08-11 — the subject axis (the 8th table), caps for the lidless tables, and fail-closed write paths
 
 v1.8.0 put the instrument in place (the size report on stderr), but **the only things it could narrow

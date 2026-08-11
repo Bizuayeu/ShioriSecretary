@@ -104,7 +104,7 @@ ShioriSecretary/
 │   │   ├── outbound.py       # pre-send guards shared by send-reply / proactive-send (lease re-verification, attachment validation)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # registry CRUD UseCase
-│   │   ├── orientation.py    # projection for the startup digest (one-line summaries / index / category, subject and count narrowing / caps on long-text fields / notes tail / handoff selection, DESIGN §3.12)
+│   │   ├── orientation.py    # projection for the startup digest (a prescription per table: caps on the long-text field for the 4 capped tables, one-line indexes and count narrowing for the 4 index-side tables, category/subject narrowing, notes tail, handoff selection, DESIGN §3.12)
 │   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
 │   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
 │   ├── adapters/
