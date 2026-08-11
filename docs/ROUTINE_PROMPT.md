@@ -114,16 +114,16 @@ source /tmp/shiori-secretary.env.sh && \
 
    ダイジェストが足りない／重すぎる時は `--notes-tail` / `--topic-width` / `--handoff-latest` / `--handoff-cap` / `--knowledge-latest` / `--profile-cap` / `--individuals-cap` / `--abilities-cap` / `--tasks-latest` で幅を調節する（既定 4000B / 120B / 3 ブロック / 8000B / 全件、および cap 系は全て蓋なし＝全文・全件。**幅の単位は UTF-8 バイト**で丸めは文字境界＝退避の閾値と同じ単位で数える。`--knowledge-category`〔認識の型〕/ `--knowledge-subject`〔主題〕で索引を絞ることもでき、併用すると絞った後の中で新しい順に効く）。**主題軸を運用すると digest は太る**——subjects 表の全文掲載と索引の主題列が増えるため。後ろ 4 つの cap は、v1.8.0 の 4 ノブでは届かなかった蓋の無い側（小表の長文フィールドと tasks 一行要約の件数）を初めて可動域に入れる（DESIGN §3.12）。
 
-   **絞る順序は実測で決める**——上の警告が出たら、まず絞って効く項を知る。母体運用（knowledge 197 件 / tasks 10 件 / handoff 2 ブロック）での実測では、**単一ノブでは目標に届かず**（最も効く `--knowledge-latest 30` 単独でも 45,802 バイト）、4 項を同時に絞って初めて 24,152 バイトに収まった：
+   **絞る順序は実測で決める**——上の警告が出たら、まず絞って効く項を知る。手順は ① **測る**（stderr の `orientation digest: N bytes` を読む）→ ② **1 ノブだけ絞って測り直す**（その項がどれだけ効くかを知る）→ ③ **足りなければ併用する**（**単一ノブでは目標に届かないことがある**——効いた項を並べて同時に絞る）→ ④ **25,600 バイトの警告が消えるまで ①〜③ を繰り返す**。併用はこの形で書く：
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
   (cd "$SHIORI_INSTALL_DIR" && \
    python scripts/main.py orientation \
-     --knowledge-latest 30 --notes-tail 500 --handoff-latest 2 --handoff-cap 2500)
+     --knowledge-latest <N> --notes-tail <N> --handoff-latest <N> --handoff-cap <N>)
 ```
 
-   （この 4 値は**母体の registry に対する実測値**であって、あなたのデータの正解ではない——自分の枠の `orientation digest: N bytes` を見て決める。**絞った分は消えるのではなく読み筋が変わる**: knowledge 索引は `latest N of M` が母数を開示、tasks の notes 全文は `tasks get --key`、handoff は**頭から**丸められるので末尾〔「★次枠がまずやること★」等〕が切れうる——切れた印 `…` が出たら見出しのファイル名を `Read` で原本ごと読む。なお `--handoff-latest` を 1 まで絞ると未消化ブロックが**名前ごと digest から消える**ので、消化・卒業のサイクルに載せたいなら 2 以上を残す）
+   （**どの項をどこまで絞るかは自分の枠の `orientation digest: N bytes` を見て決める**——registry の中身は枠ごとに違うので、他所で効いた値はあなたのデータの正解ではない。**絞った分は消えるのではなく読み筋が変わる**: knowledge 索引は `latest N of M` が母数を開示、tasks の notes 全文は `tasks get --key`、handoff は**頭から**丸められるので末尾〔「★次枠がまずやること★」等〕が切れうる——切れた印 `…` が出たら見出しのファイル名を `Read` で原本ごと読む。なお `--handoff-latest` を 1 まで絞ると未消化ブロックが**名前ごと digest から消える**ので、消化・卒業のサイクルに載せたいなら 2 以上を残す）
 
 11. **自由時間（autonomous turn）の判断**。オリエンテーションを終えたら、その起動を「自律的に1ターン使うに値するか」判断する。**毎起動で機械的に発信せず、knowledge に記録された運用規範（actionability ゲート）を通す**——渡すに値する signal だけを起こす。grant（自由時間の付与等）が生きていて値する signal があれば、次の候補から **1つだけ** 能動的に進める（手順は「自由時間の能動発信（proactive-send）」節に従う）：
 
