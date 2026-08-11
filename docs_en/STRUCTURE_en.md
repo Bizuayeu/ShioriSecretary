@@ -19,7 +19,7 @@ The angle-bracket tokens used in the distributed documentation and templates are
 | `<PRIVATE_DIR>` | Location of non-public data and persona definitions (in a cloud routine, relative to the cwd parent) | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | Install path | Where ShioriSecretary is placed |
 | `<state_dir>` | Storage for volatile state (offset/lease/media) | env `SHIORI_STATE_DIR` |
-| `<registry_dir>` | Storage for persistent registry + artifacts (an independent git worktree of `claude/shiori-registry`, with the 7 registries + `wal/` + `artifacts/` directly under root. → DESIGN §3.6/§3.10/§3.11) | config.json `registry_dir` (recommended `shiori-registry-wt`; falls back to `<state_dir>` if unset) |
+| `<registry_dir>` | Storage for persistent registry + artifacts (an independent git worktree of `claude/shiori-registry`, with the 8 registries + `wal/` + `artifacts/` directly under root. → DESIGN §3.6/§3.10/§3.11) | config.json `registry_dir` (recommended `shiori-registry-wt`; falls back to `<state_dir>` if unset) |
 
 `SecretaryRole` is used generically as a role name (no replacement needed). The concrete persona definition lives at `<PRIVATE_DIR>/Identities/SecretaryRole.md`; the template is [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md) (English: [`SecretaryRole.template_en.md`](../templates/SecretaryRole.template_en.md)).
 
@@ -80,6 +80,7 @@ ShioriSecretary/
 │   ├── INDIVIDUALS.template.json
 │   ├── TASKS.template.json
 │   ├── KNOWLEDGE.template.json
+│   ├── SUBJECTS.template.json         # template for the subject vocabulary (the match target of KNOWLEDGE.subjects[])
 │   ├── ABILITIES.template.json
 │   ├── PROFILE.template.json          # template for person understanding (the P axis)
 │   ├── GOALS.template.json            # template for goals (the A axis)
@@ -93,7 +94,7 @@ ShioriSecretary/
 │   │   ├── models.py / media.py / outbound.py / exceptions.py
 │   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
 │   │   ├── session_config.py # session_duration_sec range validation (MAX_SECONDS guard)
-│   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Ability / Profile / Goal / Step) + derive_role (P×A role derivation, §3.11)
+│   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Subject / Ability / Profile / Goal / Step) + derive_role (P×A role derivation, §3.11) + unknown_keys / invalid_subjects (the pure validators of the write paths)
 │   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint / outbound split, DESIGN §3.9)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
@@ -103,7 +104,7 @@ ShioriSecretary/
 │   │   ├── outbound.py       # pre-send guards shared by send-reply / proactive-send (lease re-verification, attachment validation)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # registry CRUD UseCase
-│   │   ├── orientation.py    # projection for the startup digest (one-line summaries / index / count narrowing / notes tail / handoff selection, DESIGN §3.12)
+│   │   ├── orientation.py    # projection for the startup digest (one-line summaries / index / category, subject and count narrowing / caps on long-text fields / notes tail / handoff selection, DESIGN §3.12)
 │   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
 │   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
 │   ├── adapters/
@@ -149,6 +150,8 @@ ShioriSecretary/
     │   ├── KNOWLEDGE.json             # a single file when small
     │   ├── <category>.json            # split by category when it grows (accumulated, not archived)
     │   └── archive/                   # (empty as a rule; only on explicit disposal)
+    ├── subjects/
+    │   └── SUBJECTS.json              # subject vocabulary (the match target of KNOWLEDGE.subjects[]; an open vocabulary = data, §3.8)
     ├── abilities/
     │   └── ABILITIES.json             # ability catalog (trigger/skill_path/guidance, WAL target)
     ├── profile/
@@ -178,6 +181,7 @@ ShioriSecretary/
 | Stakeholder data INDIVIDUALS.json | `<registry_dir>/individuals/` | Private (persistent) |
 | Request data TASKS.json | `<registry_dir>/tasks/` | Private (persistent) |
 | Response knowledge KNOWLEDGE.json (→ split by category) | `<registry_dir>/knowledge/` | Private (persistent) |
+| Subject vocabulary SUBJECTS.json (the axis by which KNOWLEDGE is retrieved) | `<registry_dir>/subjects/` | Private (persistent) |
 | Ability catalog ABILITIES.json | `<registry_dir>/abilities/` | Private (persistent) |
 | Person understanding PROFILE.json (the P axis) | `<registry_dir>/profile/` | Private (persistent, sensitive PII) |
 | Goals GOALS.json / steps STEPS.json (the A axis) | `<registry_dir>/goals/` `<registry_dir>/steps/` | Private (persistent) |
@@ -228,4 +232,4 @@ ShioriSecretary/
 
 ## The `/shiori-secretary` Wrapper (the Entry Point for Operations)
 
-The entire interface for registry CRUD (`individuals|tasks|knowledge|abilities list|get|add|remove`) is accessible through the management panel of the master skill `/shiori-secretary`. Both the agent and human users reach the operations from `/shiori-secretary` without having to memorize command names.
+The entire interface for registry CRUD (`individuals|tasks|knowledge|subjects|abilities|profile|goals|steps list|get|add|remove|import`) is accessible through the management panel of the master skill `/shiori-secretary`. Both the agent and human users reach the operations from `/shiori-secretary` without having to memorize command names.

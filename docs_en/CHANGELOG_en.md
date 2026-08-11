@@ -4,6 +4,79 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.9.0] - 2026-08-11 — the subject axis (the 8th table), caps for the lidless tables, and fail-closed write paths
+
+v1.8.0 put the instrument in place (the size report on stderr), but **the only things it could narrow
+were three terms** — the knowledge index, the notes tail, and the handoff body — and it could not reach
+the full text of the small tables or the one-line task summaries, i.e. "the floor that cannot be narrowed".
+The other gap: the only axis for retrieving knowledge was `category` (the type of knowing), so **there was
+no path to retrieve by subject** (accounting, clients, …). v1.8.0 tried to substitute a prefix convention on
+`topic` (`[subject] body`), but **a convention drifts precisely because it is not enforced**. This release
+lands two pillars: **caps for the lidless tables** (bringing the floor into the movable range) and
+**the SUBJECTS vocabulary table** (the 8th table). Since the subject axis fattens the digest (the subjects
+table is printed in full and the index gains a subject column), **the caps are a precondition for the axis**.
+
+### ⚠️ Breaking change (read before upgrading)
+
+**The write paths (`add` / `import`) now reject unknown top-level fields with exit 2 (fail-closed).**
+Because `from_dict` used to copy only the known keys, a typo (`subjects` → `subject`) **never raised and
+vanished in silence** — leaving you to discover later that "it was registered but is not there". This release
+prints the key name to stderr (`unknown field(s): subject`) and fails on the spot. **An operation that had been
+issuing `add` with unknown keys will break** (breaking is the point). The validation lives **only on the write
+paths**; the read paths (`list` / `get` / `orientation`) stay forward compatible with a warning only — putting
+the same validation on reads would make a single record with one unknown key take down the whole `list`.
+
+**Migration (perform around the upgrade):**
+
+1. **Stand up the SUBJECTS table (the 8th table)** — a missing 8th-table file **does not break anything**
+   (a nonexistent table reads as an empty array, and the subjects section of `orientation` simply prints `[]`).
+   The first `subjects add` creates `<registry_dir>/subjects/SUBJECTS.json` along with its directory, so
+   normally nothing extra is required:
+
+   ```bash
+   python scripts/main.py subjects add --json '{"id": "経理", "label": "経理", "aliases": [], "status": "active", "note": "請求・支払・決算まわり", "created_at": "2026-08-11T00:00:00Z", "updated_at": "2026-08-11T00:00:00Z"}'
+   ```
+
+   If you would rather have the template's shape (`_record_schema` / `_growth_policy`) on hand first, copy
+   `templates/SUBJECTS.template.json` to `<registry_dir>/subjects/SUBJECTS.json`. Either way the vocabulary
+   starts empty and grows through `subjects add` (**grow it in depth, not in width** — the domains one deals
+   with differ per operator, so no initial vocabulary is shipped). When `registry_sync` is enabled, `add`
+   rides the commit&push
+2. **Check for records carrying unknown fields** — if a table was populated by hand or by an old script, the
+   first `add` / `import` will exit 2. Read the key name on stderr and either fix the typo or drop the
+   unnecessary key (the read paths do not fail, so you can inspect the actual data with `list` first)
+3. **Move from the topic prefix convention (`[subject] body`) to subjects** — the prefix convention proposed in
+   the v1.8.0 Notes is **retired in this release**. Existing prefixes are not broken and remain readable, but to
+   make them work for narrowing, declare the vocabulary with `subjects add` and move them into `subjects[]` via
+   `knowledge add` (new records) or `import --json-file` (bulk write-back of existing ones). **No bulk conversion
+   script is shipped** — which subject something belongs to is a judgment, not a conversion (the same reason as
+   the v1.8.0 category migration)
+4. **A running cloud routine needs its prompt body re-registered** — an existing routine's body is a snapshot
+   taken at registration time, so the ROUTINE_PROMPT Step 5 changes (the new options, the reading path for
+   subjects, the move to 8 tables) do not reach production from a repo edit alone
+
+### Added
+
+- **The `SUBJECTS` registry table (the 8th)** — the vocabulary table of subjects (`id` = the canonical slug / `label` / `aliases[]` / `status` ∈ {active, deprecated} / `note` / `created_at` / `updated_at`). **A closed vocabulary is code, an open vocabulary is data** — `category` stays a frozenset, while subjects live in a registry table (so that adding one subject does not demand a redeploy. DESIGN §3.8). `status=deprecated` is retirement rather than deletion: it stops new assignments without breaking the readability of existing records. **The wiring cost was one line of `REGISTRY_SPEC` plus `Config.subjects_path`**, and CRUD, the WAL kind, the table order in orientation, and the subparser all followed automatically (the demonstration of the table-driven claim §3.8 made for abilities)
+- **`knowledge.subjects[]` (assigning subjects)** — an axis orthogonal to `category`. Values are matched against the **active ids** of the SUBJECTS table, and anything out of vocabulary or deprecated **exits 2 with the candidates enumerated** (the same UX as the v1.8.0 category validation). An empty array or omission is fine (backward compatible). The judgment is the Domain pure function `invalid_subjects(subjects, active_ids)` and the data supply is the Interface — dependencies stay inward-facing, and the judgment is testable from its arguments alone
+- **`orientation --knowledge-subject <id>`** — narrows the index by element match on subjects (isomorphic to `--knowledge-category`: the population remains in the `N of M` heading, and 0 matches still exits 0 = narrowing is observation, not validation). The narrowing order is **category → subject → latest** (applying latest first would make it "0 records if none of the N newest carry the subject", which breaks the meaning of narrowing)
+- **Four cap knobs on `orientation`** — `--profile-cap` / `--individuals-cap` / `--abilities-cap` (byte limits on **the dominant long-text field** of each table = `content` / `identity.context_notes` / `guidance`) and `--tasks-latest` (a cap on the number of one-line summaries; the notes follow along). The rounding reuses the existing `_truncate` (bytes, character boundaries, the marker inside the width, non-positive drops everything), so **no new rounding logic was written**. Applying the cap to one field instead of rounding the whole record's JSON keeps the structure intact and preserves the reading "even when rounded, the individual record is retrievable with `get --key`". **The default (unset) is full text and all records = non-breaking**, and the heading discloses it as `full, <field path> cap N bytes`. goals / steps have no knobs (add the same shape when bloat triggers it)
+- **`<table> import --json-file` (the front door for full replacement)** — it grows on all 8 tables (`REGISTRY_SPEC`-driven). **Validate all, then replace all**: a single invalid record exits 2 and **replaces nothing** (no partial writes). Duplicate keys within the batch are rejected with exit 2 as well — unlike upsert, `replace_all` does not collapse duplicates, so letting them through would produce a table where "`get` returns only the first and `remove` deletes both". stderr carries the delta `imported knowledge: N -> M records (added: …, removed: …)`. The post-replacement sync is one commit (a table is one file)
+- **`templates/SUBJECTS.template.json`** — a missing template for the 8th table alone would be a structural asymmetry. `records` is an empty array per the convention of the other tables, and the example words (accounting, clients, health) live in `_record_schema` (loading real data is the secretary's domain)
+
+### Changed
+
+- **The knowledge index gains a third column (`id | topic` → `id | subjects | topic`)** — subjects are joined with `/`, and an unset one shows as `-` (a vanishing column makes the reader shift columns and misread — the same reason as the due_date of `summarize_task`). **The added column sits outside `topic_width`** (if adding subjects shrank the rounding width of topic, how much of the index is readable would wobble with how subjects happen to be assigned). This means **the byte-identical contract of the default output is deliberately broken in exactly one place, the index line** (an approved specification change)
+- **Retirement of the topic prefix convention (`[subject] body`)** — the convention placed in the v1.8.0 Notes is withdrawn: the text is removed from `SKILL.md` / `templates/KNOWLEDGE.template.json` and replaced with guidance toward subjects. **A convention drifts precisely because it is not enforced** (missed prefixes, spelling drift, and an unfinished backfill can coexist without anyone noticing) — a data structure that can be rejected at the write path beats a convention that cannot be validated. **The past sections (v1.8.0 and earlier) are historical record and were not rewritten**
+- **Broader coverage in `test_templates`** — it previously validated only the three templates PROFILE / GOALS / STEPS for key-set equality between `_record_schema` and `to_dict()`, so **an uncovered table could drift without anyone noticing**. Extending it to all 8 templated tables surfaced, as predicted, **the pre-existing drift in the KNOWLEDGE template (`subjects` missing)**, and the template was aligned to the value object (the VO is the authority on schema). When a table is added, add a line here
+- **Downstream documents follow** — `README.md` (8 tables, the full orientation option list), `DESIGN.md` (§3.1 eight tables / §3.5 the cap table on the digest side / §3.8 "why subjects became the 8th table" plus why only the write paths are fail-closed / §3.10 the table count / §3.12 the bounding formula, subject narrowing, and the recomputed floor), `ROUTINE_PROMPT.md` (a subjects line and the three-column index in the per-table reading path of Step 5, the four new knobs, eight tables, the wal-append kinds), `skills/shiori-secretary/SKILL.md`, `commands/shiori-secretary.md`, `STRUCTURE.md`, `SECURITY.md`, `SETUP.md`, `templates/{KNOWLEDGE,SUBJECTS,SecretaryRole}`, `bootstrap.sh` — all synchronized across both languages
+
+### Notes
+
+- **Every new knob defaults to no lid (full text, all records)** — this release only adds means of narrowing; the volume of the default output does not shrink or grow (it grows only by the subject column of the index and the subjects table itself). **Decide the narrowing values from your own data** — the instrument laid down in v1.8.0 (`orientation digest: N bytes` on stderr every window) and the procedure of narrowing once that value crosses the threshold carry the new knobs as they are (ROUTINE_PROMPT Step 5). **Operating the subject axis fattens the digest**, so watch the size report of the window in which you start assigning subjects
+- **The vocabulary starts empty** — the distributed `SUBJECTS.template.json` ships `records` as an empty array and bundles no initial vocabulary (the domains one deals with differ per operator). The rough guide for adding a word ("consider tidying up once you pass 10") is **provisional** (a number placed before any operational track record); the primary source for calibration is your own measurements
+- **`subjects` was added to the known-entry enumeration in `bootstrap.sh`** (without it, re-provisioning a registry that has subjects/ would always warn and skip). The pre-existing inconsistency that profile / goals / steps / artifacts were never enumerated is out of scope here — it fails on the safe side (the side that does not delete), so it is booked with a `cc-defer` carrying its escalation trigger
+
 ## [1.8.0] - 2026-08-10 — validating the allowed set, self-reporting the size, and a calibration procedure for the widths
 
 v1.7.0 corrected the **unit** of the widths, but **nobody was measuring** whether those values

@@ -57,7 +57,7 @@ marketplace からインストール、または基本設定リポの `ShioriSec
 
 > config.json は**基本設定リポの `ShioriSecretary/config.json` に置き、cloud routine が fresh clone で読めるようコミット**します（秘匿を含まない運用設定ゆえコミット可）。配布リポでは `.gitignore` 対象なので、運用リポ側で明示追跡してください。
 
-**管理表（関係者・依頼・対応知・能力カタログ・人物理解・目標・逆算ステップ）をリポジトリに永続化する場合**（任意・推奨）— cloud routine は毎回 fresh clone で起動し実行環境は揮発するため、秘書が蓄積した管理表を次回起動へ残すには、**リポジトリの固定ブランチ**に git 永続化します。`init-config` では生成されないので、config.json に以下を追記します（雛型は `templates/config.template.json`）:
+**管理表（関係者・依頼・対応知・主題語彙・能力カタログ・人物理解・目標・逆算ステップ）をリポジトリに永続化する場合**（任意・推奨）— cloud routine は毎回 fresh clone で起動し実行環境は揮発するため、秘書が蓄積した管理表を次回起動へ残すには、**リポジトリの固定ブランチ**に git 永続化します。`init-config` では生成されないので、config.json に以下を追記します（雛型は `templates/config.template.json`）:
 
 ```json
 {
@@ -68,7 +68,7 @@ marketplace からインストール、または基本設定リポの `ShioriSec
 ```
 
 - `registry_sync`: `true` で管理表を固定ブランチへ git 永続化（更新のたび commit&push＋起動時 fetch）。ローカル動作確認では `false`（git に触れない）
-- `registry_dir`: 永続管理表（individuals/tasks/knowledge/abilities/profile/goals/steps）の置き場。**揮発 state（offset/lease/media）の `state_dir` とは別**にし、**非公開リポの独立した第二 git 作業ツリー（worktree）**を指す（bootstrap が `git worktree add` で冪等 provisioning、推奨値 `shiori-registry-wt`）。**dev ツリー内サブディレクトリにすると起動時 fetch の `checkout -B` が親リポを破壊する**ため不可（→ DESIGN §3.6）。未設定なら `state_dir` にフォールバック
+- `registry_dir`: 永続管理表（individuals/tasks/knowledge/subjects/abilities/profile/goals/steps）の置き場。**揮発 state（offset/lease/media）の `state_dir` とは別**にし、**非公開リポの独立した第二 git 作業ツリー（worktree）**を指す（bootstrap が `git worktree add` で冪等 provisioning、推奨値 `shiori-registry-wt`）。**dev ツリー内サブディレクトリにすると起動時 fetch の `checkout -B` が親リポを破壊する**ため不可（→ DESIGN §3.6）。未設定なら `state_dir` にフォールバック
 - `registry_branch`: push 先の固定ブランチ（既定 `claude/shiori-registry`）。`registry_remote`（既定 `origin`）と組で運用。揮発 state と分けることで「消えてよいもの」と「蓄積が本質のもの」を物理分離します
 
 ### ⑥ cloud routine に登録
@@ -124,6 +124,7 @@ claude.ai の Code → Environments で：
 | 管理表が毎回空に戻る | `registry_sync` 無効 or worktree 未 provisioning or git 認証不足 | config の `registry_sync:true` / `registry_dir`（独立 worktree）を確認 → bootstrap の `registry worktree provisioned/refreshed` ログと固定ブランチへの push 認証（git credential）を確認（DESIGN §3.6） |
 | `registry fetch failed`（起動時） | 固定ブランチ未作成 or git 認証不足 | 初回は対象ブランチが空でも継続（前回ローカル状態で起動）。git 認証（PAT 等）が Environment にあるか確認 |
 | 管理表は埋まっているのに、秘書が登録済みのタスク・方針を毎回忘れる | 起動時に管理表を並べて `list` している（肥大した表は出力上限を超え、コンテキストに載らないまま exit 0 する＝沈黙失敗） | 起動時オリエンテーションは `python scripts/main.py orientation` の一撃で行う（bootstrap が `ready` の直前に案内を出す）。単表 `list` が 200KB を超えると stderr に警告が出るので、それを合図に `orientation` / `get --key` へ切り替える（→ DESIGN §3.12） |
+| `add` / `import` が exit 2 で落ちる（stderr に `unknown field(s): ...` や主題の候補列挙） | v1.9.0 の fail-closed——書き込み口がトップレベルの未知キー・語彙外の subject・許可集合外の category を弾いている | stderr が原因（キー名・候補）を出すので、それを見てレコードを直してから再実行する。typo キーを黙って捨てないための仕様で、read 経路（`list` / `get` / `orientation`）は従来どおり読める（→ DESIGN §3.8/§3.12） |
 | 管理表が空＝記憶なし稼働（stderr に `WARNING: ... EMPTY tables`） | `registry_dir` が独立 worktree でない（dev ツリー内サブディレクトリ＝旧構成） | `registry_dir` を独立 worktree 値（`shiori-registry-wt`）にする。bootstrap の `registry worktree provisioned/refreshed` ログを確認（→ DESIGN §3.6） |
 
 ## 参照

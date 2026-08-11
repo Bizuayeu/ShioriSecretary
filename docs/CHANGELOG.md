@@ -4,6 +4,72 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.9.0] - 2026-08-11 — 主題の軸（8 表目）・蓋の無い表への上限ノブ・書き込み口の fail-closed
+
+v1.8.0 は測る装置（stderr のサイズ申告）を置いたが、**絞れるのは knowledge 索引・notes 末尾・
+handoff 本文の 3 項だけ**で、小表の全文と tasks の一行要約——「絞れない床」——には手が届かなかった。
+もう一つ、knowledge を引く軸が `category`（認識の型）しか無く、**主題（経理・顧客…）で引く経路が無い**。
+v1.8.0 はこれを `topic` の接頭辞規約（`[主題] 本文`）で代用しようとしたが、規約は**強制されないぶん揺れる**。
+本版は二本柱で入れる：**蓋の無い表への上限ノブ**（床を可動域へ）と **主題の語彙表 SUBJECTS**（8 表目）。
+主題軸は digest を太らせる（subjects 表の全文掲載＋索引の主題列）ので、**上限ノブは主題軸の前提条件**である。
+
+### ⚠️ 破壊的変更（アップグレード前に必読）
+
+**書き込み口（`add` / `import`）が、トップレベルの未知フィールドを exit 2 で弾く（fail-closed）。**
+従来 `from_dict` は既知キーだけを転記していたため、typo（`subjects` → `subject`）は**例外にならず
+沈黙して消えていた**——「登録したのに無い」を後から探させる形である。本版はキー名を stderr に出して
+（`unknown field(s): subject`）その場で落とす。**未知キー付きの `add` を行っていた運用は落ちる**
+（落ちること自体が目的）。検証は**書き込み口のみ**で、read 経路（`list` / `get` / `orientation`）は
+前方互換のため警告どまりに留める——read に同じ検証を入れると、未知キーを 1 つ持つレコードがあるだけで
+`list` が全滅する。
+
+**移行手順（アップグレード前後に実施）**:
+
+1. **SUBJECTS 表（8 表目）を立てる** — 8 表目のファイルは**無くても落ちない**（存在しない表は空配列として
+   読まれ、`orientation` の subjects セクションが `[]` で出るだけ）。最初の `subjects add` が
+   `<registry_dir>/subjects/SUBJECTS.json` をディレクトリごと作るので、通常は追加作業が要らない:
+
+   ```bash
+   python scripts/main.py subjects add --json '{"id": "経理", "label": "経理", "aliases": [], "status": "active", "note": "請求・支払・決算まわり", "created_at": "2026-08-11T00:00:00Z", "updated_at": "2026-08-11T00:00:00Z"}'
+   ```
+
+   雛型の書式（`_record_schema` / `_growth_policy`）を先に手元へ置きたい場合は
+   `templates/SUBJECTS.template.json` を `<registry_dir>/subjects/SUBJECTS.json` へ複製してもよい。
+   いずれの経路でも語彙は空から始めて `subjects add` で育てる（**増やすより育てる**——扱う領域は
+   運用主体ごとに違うので、初期語彙は同梱しない）。`registry_sync` 有効時は `add` が commit&push に乗る
+2. **未知フィールド付きのレコードが無いか確かめる** — 手書きや旧スクリプトで登録した表がある場合、
+   最初の `add` / `import` が exit 2 で落ちる。stderr のキー名を見て、typo なら正しいキーへ直し、
+   不要なキーなら削る（read 経路は落ちないので、`list` で現物を確認してから直せる）
+3. **topic 接頭辞規約（`[主題] 本文`）から subjects へ移る** — v1.8.0 Notes が提案した接頭辞規約は
+   **本版で廃止**した。既存 topic の接頭辞は壊れないのでそのままでも読めるが、絞りに効かせるには
+   `subjects add` で語彙を立て、`knowledge add`（新規）または `import --json-file`（既存の一括書き戻し）で
+   `subjects[]` に移す。**一括変換スクリプトは配っていない**——どの主題に属するかは判断であって変換ではない
+   （v1.8.0 の category 移行と同じ理由）
+4. **稼働中の cloud routine は prompt body の再登録が必要** — 既存 routine の body は登録時 snapshot ゆえ、
+   ROUTINE_PROMPT Step 5 の変更（新オプション・subjects の読み筋・8 表化）はリポ修正だけでは本番へ届かない
+
+### Added
+
+- **`SUBJECTS` 管理表（8 表目）** — 主題の語彙表（`id`＝正準 slug / `label` / `aliases[]` / `status` ∈ {active, deprecated} / `note` / `created_at` / `updated_at`）。**閉じた語彙はコード、開いた語彙はデータ**——`category` が frozenset のままなのに対し、主題は管理表に置く（主題を 1 つ増やすたびに再デプロイを要求しないため。DESIGN §3.8）。`status=deprecated` は削除ではなく廃止で、既存レコードの読み出しを壊さず新規付与だけを止める。**配線コストは `REGISTRY_SPEC` の 1 行＋`Config.subjects_path` だけ**で、CRUD・WAL kind・orientation の表順・subparser がすべて自動追従した（§3.8 が abilities で主張したテーブル駆動の実証）
+- **`knowledge.subjects[]`（主題の付与）** — `category` と直交する軸。値は SUBJECTS 表の **active な id** と照合し、語彙外・deprecated は**候補列挙付き exit 2**（v1.8.0 の category 検証と同じ UX）。空配列・省略は可（後方互換）。照合の判定は Domain 純関数 `invalid_subjects(subjects, active_ids)`、データ供給は Interface——依存は内向きのまま、判定は引数だけでテストできる
+- **`orientation --knowledge-subject <id>`** — 索引を subjects の要素一致で絞る（`--knowledge-category` の同型。母数は見出しの `N of M` に残り、該当 0 件でも exit 0＝絞りは観測であって検証ではない）。絞りの順は **category → subject → latest**（latest を先に効かせると「新しい N 件に該当主題が無ければ 0 件」になり絞りの意味が壊れる）
+- **`orientation` の上限ノブ 4 種** — `--profile-cap` / `--individuals-cap` / `--abilities-cap`（各表の**支配的長文フィールド**＝ `content` / `identity.context_notes` / `guidance` のバイト上限）と `--tasks-latest`（一行要約の件数上限、notes も連動）。丸めは既存 `_truncate` の再利用（バイト・文字境界・マーカーは幅の内側・非正は全捨て）で**新しい丸め処理を書いていない**。レコード全体の JSON を丸めず 1 フィールドだけに当てるのは、構造を壊さず「丸めても個票は `get --key` で引ける」読み筋を温存するため。**既定（未指定）は全文・全件＝非破壊**で、見出しに `full, <field path> cap N bytes` として開示する。goals / steps にはノブを付けていない（肥大トリガーで同型追加）
+- **`<表> import --json-file`（全件置換の正面口）** — 全 8 表に生える（`REGISTRY_SPEC` 駆動）。**全件検証 → 一括置換**で、1 件でも不正なら exit 2・**無置換**（部分書き込みを作らない）。batch 内のキー重複も exit 2 で弾く——`replace_all` は upsert と違い一意性を畳まないため、通すと「`get` は先頭だけ返し `remove` は両方消す」表ができる。stderr に `imported knowledge: N -> M records (added: …, removed: …)` の差分。置換後の sync は 1 commit（表は 1 ファイル）
+- **`templates/SUBJECTS.template.json`** — 8 表目のみ雛型欠落は構成の非対称。`records` は他表の規約どおり空配列で、例示語（経理・顧客・健康）は `_record_schema` に置く（実データ投入は秘書の領分）
+
+### Changed
+
+- **knowledge 索引の 3 列化（`id | topic` → `id | subjects | topic`）** — 主題は `/` 連結、未設定は `-`（列が消えると読み手が桁をずらして誤読する——`summarize_task` の due_date と同じ理由）。**併記列は topic_width の外側**に置く（主題を足したせいで topic の丸め幅が縮むと、索引の読める量が主題の付き方で揺れる）。これにより**既定出力の byte 同一契約は索引行 1 箇所だけ意図的に破れている**（裁可済みの仕様変更）
+- **topic 接頭辞規約（`[主題] 本文`）の廃止** — v1.8.0 が Notes に置いた規約を撤回し、`SKILL.md` / `templates/KNOWLEDGE.template.json` から本文ごと削除して subjects 案内へ置換した。規約は**強制されないぶん揺れる**（付け忘れ・表記ゆれ・遡及付与の未完了が混在しても誰も気づかない）——検証できない規約より、書き込み口で弾けるデータ構造を採る。**過去の節（v1.8.0 以前）は歴史記録ゆえ書き換えていない**
+- **`test_templates` の対象拡張** — 従来は PROFILE / GOALS / STEPS の 3 雛型のみを `_record_schema` ↔ `to_dict()` のキー集合一致で検証しており、**未カバーの表は乖離しても誰も気づかなかった**。雛型を持つ 8 表すべてを対象にしたところ、予告どおり **KNOWLEDGE 雛型の既存乖離（`subjects` 未記載）が露見**したので雛型側を値オブジェクトに揃えた（スキーマの正は VO）。表が増えたらここへ 1 行足す
+- **接点文書の追従** — `README.md`（8 表・orientation 全オプション）、`DESIGN.md`（§3.1 8 表化 / §3.5 digest 側の上限ノブ表 / §3.8「なぜ subjects を 8 表目に」＋書き込み口だけを fail-closed にする理由 / §3.10 表数 / §3.12 有界式・主題絞り・床の再計算）、`ROUTINE_PROMPT.md`（Step 5 の表別読み筋に subjects 行と索引 3 列・新ノブ 4 種・8 表・wal-append kind）、`skills/shiori-secretary/SKILL.md`、`commands/shiori-secretary.md`、`STRUCTURE.md`、`SECURITY.md`、`SETUP.md`、`templates/{KNOWLEDGE,SUBJECTS,SecretaryRole}`、`bootstrap.sh`——いずれも日英同期
+
+### Notes
+
+- **新ノブの既定はすべて蓋なし（全文・全件）** — 本版は絞る手段を増やしただけで、既定出力の量は増減しない（索引の主題列と subjects 表の分だけ増える）。**絞る値は自分のデータで校正する**——v1.8.0 で敷いた計器（毎枠 stderr の `orientation digest: N bytes`）と、その値が閾値を超えたら絞るという手順に、新ノブがそのまま乗る（ROUTINE_PROMPT Step 5）。**主題軸を運用すると digest は太る**ので、主題を付け始めた枠のサイズ申告は見ておく
+- **語彙は空から始まる** — 配布 `SUBJECTS.template.json` は `records` 空配列で、初期語彙を同梱しない（扱う領域は運用主体ごとに違う）。語彙追加の目安「10 件以上たまったら整理を考える」は**仮置き**（運用実績が無い時点で置いた数字）で、校正の一次資料は自分の運用実測になる
+- **`bootstrap.sh` の registry 既知エントリ列挙**に `subjects` を足した（未追加だと subjects/ を持つ registry で再 provisioning が常に warn+skip される）。profile / goals / steps / artifacts が元々未列挙な既存不整合は本版のスコープ外——安全側（削除しない側）に倒れる不整合ゆえ `cc-defer` で台帳化し、昇格トリガーを添えてある
+
 ## [1.8.0] - 2026-08-10 — 許可集合の検証・サイズの自己申告・幅の校正手順
 
 v1.7.0 は幅の**単位**を是正したが、その値が実データで足りているかは**誰も測っていなかった**。

@@ -19,7 +19,7 @@
 | `<PRIVATE_DIR>` | 非公開データ・人格定義の配置先（cloud routine では cwd 親起点の相対） | `my-private-repo/ShioriSecretary` |
 | `<INSTALL_DIR>` | インストール先パス | ShioriSecretary 配置先 |
 | `<state_dir>` | 揮発 state（offset/lease/media）の保存先 | env `SHIORI_STATE_DIR` |
-| `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/shiori-registry` の独立 git worktree、root 直下に7管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10/§3.11） | config.json `registry_dir`（推奨 `shiori-registry-wt`、未設定なら `<state_dir>`） |
+| `<registry_dir>` | 永続管理表＋成果物の保存先（`claude/shiori-registry` の独立 git worktree、root 直下に8管理表＋`wal/`＋`artifacts/`。→ DESIGN §3.6/§3.10/§3.11） | config.json `registry_dir`（推奨 `shiori-registry-wt`、未設定なら `<state_dir>`） |
 
 `SecretaryRole` はロール名として汎用使用（置換不要）。人格の実体定義は `<PRIVATE_DIR>/Identities/SecretaryRole.md`、雛型は [`templates/SecretaryRole.template.md`](../templates/SecretaryRole.template.md)（英語版 [`SecretaryRole.template_en.md`](../templates/SecretaryRole.template_en.md)）。
 
@@ -80,6 +80,7 @@ ShioriSecretary/
 │   ├── INDIVIDUALS.template.json
 │   ├── TASKS.template.json
 │   ├── KNOWLEDGE.template.json
+│   ├── SUBJECTS.template.json         # 主題語彙（KNOWLEDGE.subjects[] の照合先）の雛型
 │   ├── ABILITIES.template.json
 │   ├── PROFILE.template.json          # 人物理解（P軸）の雛型
 │   ├── GOALS.template.json            # 目標（A軸）の雛型
@@ -93,7 +94,7 @@ ShioriSecretary/
 │   │   ├── models.py / media.py / outbound.py / exceptions.py
 │   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
 │   │   ├── session_config.py # session_duration_sec の値域検証（範囲ガード・MAX_SECONDS）
-│   │   ├── registry.py       # 管理表 値オブジェクト（Individual / Identity / Task / Knowledge / Ability / Profile / Goal / Step）＋ derive_role（P×A 役割導出、§3.11）
+│   │   ├── registry.py       # 管理表 値オブジェクト（Individual / Identity / Task / Knowledge / Subject / Ability / Profile / Goal / Step）＋ derive_role（P×A 役割導出、§3.11）＋ unknown_keys / invalid_subjects（書き込み口の検証純関数）
 │   │   └── wal.py            # WAL 純粋ロジック（reconcile/settle/checkpoint・outbound の二分、DESIGN §3.9）
 │   ├── usecases/             # オーケストレーション + Port
 │   │   ├── ports.py          # Port 定義（Store 群含む）
@@ -103,7 +104,7 @@ ShioriSecretary/
 │   │   ├── outbound.py       # send-reply / proactive-send 共有の送信前ガード（lease 再検証・添付検証）
 │   │   ├── download_authorized_media.py / render_authorized_media.py
 │   │   ├── manage_registry.py # 管理表 CRUD UseCase
-│   │   ├── orientation.py    # 起動時ダイジェストの射影（一行要約/索引/件数絞り/notes 末尾/handoff 選択、DESIGN §3.12）
+│   │   ├── orientation.py    # 起動時ダイジェストの射影（一行要約/索引/category・subject・件数絞り/長文フィールドの上限/notes 末尾/handoff 選択、DESIGN §3.12）
 │   │   ├── registry_sync.py  # 管理表の git 永続化（イベント駆動 commit&push、GitSyncPort 越し、DESIGN §3.6）
 │   │   └── wal.py            # WAL UseCase（AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent）
 │   ├── adapters/
@@ -149,6 +150,8 @@ ShioriSecretary/
     │   ├── KNOWLEDGE.json             # 小規模時は単一
     │   ├── <category>.json            # 肥大化時はカテゴリ分割（archive せず蓄積）
     │   └── archive/                   # （原則空。明示的廃棄時のみ）
+    ├── subjects/
+    │   └── SUBJECTS.json              # 主題語彙（KNOWLEDGE.subjects[] の照合先。開いた語彙＝データ、§3.8）
     ├── abilities/
     │   └── ABILITIES.json             # 能力カタログ（trigger/skill_path/guidance、WAL 対象）
     ├── profile/
@@ -178,6 +181,7 @@ ShioriSecretary/
 | 関係者データ INDIVIDUALS.json | `<registry_dir>/individuals/` | Private（永続） |
 | 依頼データ TASKS.json | `<registry_dir>/tasks/` | Private（永続） |
 | 対応知 KNOWLEDGE.json（→category 分割） | `<registry_dir>/knowledge/` | Private（永続） |
+| 主題語彙 SUBJECTS.json（KNOWLEDGE を引く軸） | `<registry_dir>/subjects/` | Private（永続） |
 | 能力カタログ ABILITIES.json | `<registry_dir>/abilities/` | Private（永続） |
 | 人物理解 PROFILE.json（P軸） | `<registry_dir>/profile/` | Private（永続・機微 PII） |
 | 目標 GOALS.json / ステップ STEPS.json（A軸） | `<registry_dir>/goals/` `<registry_dir>/steps/` | Private（永続） |
@@ -228,4 +232,4 @@ ShioriSecretary/
 
 ## `/shiori-secretary` ラップ（操作の入口）
 
-管理表 CRUD の全インターフェース（`individuals|tasks|knowledge|abilities list|get|add|remove`）は、マスタースキル `/shiori-secretary` の管理パネル経由でアクセスできる。エージェントも人間ユーザーも、コマンド名を覚えずに `/shiori-secretary` から操作に到達する。
+管理表 CRUD の全インターフェース（`individuals|tasks|knowledge|subjects|abilities|profile|goals|steps list|get|add|remove|import`）は、マスタースキル `/shiori-secretary` の管理パネル経由でアクセスできる。エージェントも人間ユーザーも、コマンド名を覚えずに `/shiori-secretary` から操作に到達する。
