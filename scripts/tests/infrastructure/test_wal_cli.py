@@ -51,6 +51,34 @@ def test_append_writes_pending_when_enabled(tmp_path):
     assert entries[0].status == "pending"
 
 
+# WAL は「送信前に intent を先行 push する must-succeed 経路」なので、入口で弾けない不正が
+# あると壊れたログを push しに行く。入力不正はすべて exit 2 で、ログを書く前に止める。
+
+
+def test_append_rejects_malformed_json_before_writing(tmp_path):
+    """壊れた JSON は exit 2（registry_cli の add と同じ捕捉タプル・同じ exit code）。"""
+    config = _config(tmp_path, sync=True)
+    args = SimpleNamespace(json="{not json", json_file=None)
+    assert run_wal_append(config, "tasks", args) == EXIT_CONFIG_INVALID
+    assert not config.wal_log_path.exists()
+
+
+def test_append_rejects_registry_payload_without_its_key_field(tmp_path):
+    """registry kind は key_field（tasks なら id）が無いと弾く——キー無しは redo で照合できない。"""
+    config = _config(tmp_path, sync=True)
+    args = SimpleNamespace(json='{"title": "id の無いレコード"}', json_file=None)
+    assert run_wal_append(config, "tasks", args) == EXIT_CONFIG_INVALID
+    assert not config.wal_log_path.exists()
+
+
+def test_append_rejects_unknown_kind(tmp_path):
+    """未知の kind は弾く（redo 側に対応する表が無く、書けても復元されない）。"""
+    config = _config(tmp_path, sync=True)
+    args = SimpleNamespace(json='{"id": "X0001"}', json_file=None)
+    assert run_wal_append(config, "nonexistent", args) == EXIT_CONFIG_INVALID
+    assert not config.wal_log_path.exists()
+
+
 # --- run_wal_push: must-succeed（送信前ゲート） ---
 
 

@@ -33,6 +33,27 @@ jobs:
       - name: Run ruff formatter check
         run: ruff format --check .
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install bandit
+        run: pip install bandit
+
+      # 検査範囲は配布する Python 全体（本体 scripts/ ＋同梱スキル skills/）。ruff を `.` で
+      # 掛けているのと同じ理由——配布物なのに検査されない層を作らない。tests を外すのは、
+      # テストの `/tmp/...` リテラルが B108 で medium として並び production の指摘を埋めるため。
+      # exclude はパスのプレフィックス一致ゆえ、区切りが `\` になる Windows ローカル実行では
+      # 効かない（CI＝Linux でのみ意図どおり効く）。
+      - name: Run Bandit security scan
+        run: bandit -r scripts/ skills/ --exclude scripts/tests,skills/precognitive-viewer/PrecognitiveViewer/tests --severity-level medium
+
   test:
     runs-on: ubuntu-latest
     strategy:

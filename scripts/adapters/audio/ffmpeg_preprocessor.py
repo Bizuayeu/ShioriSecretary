@@ -27,7 +27,10 @@ class FfmpegAudioPreprocessor:
         ≒ 1.15 億サンプルの Python float list 化は数 GB 級でコンテナ OOM を招く。
         Moonshine は ndarray を直接受理する。空判定は truthiness でなく
         `len(samples) == 0` で行う契約（ndarray の bool は ambiguous）。
-        音声ストリームなし/デコード失敗時は (空配列, TARGET_RATE) を返す（クラッシュしない）。
+
+        Raises:
+            AudioDecodeError: コンテナが開けない/音声を一片もデコードできない場合。
+                「本当に無音」と「読めなかった」を呼び出し側が区別できるようにする。
         """
         import av
         import numpy as np
