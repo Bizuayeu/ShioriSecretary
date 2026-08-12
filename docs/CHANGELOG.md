@@ -4,6 +4,17 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.10.2] - 2026-08-12 — 起動手順が実在しないパスを指していた（Step 1 の SKILL.md）
+
+### Fixed
+
+- **ROUTINE_PROMPT Step 1 の参照先が実在しなかった**——`<INSTALL_DIR>/SKILL.md` と書かれていたが、SKILL.md はプラグイン構造上 `skills/shiori-secretary/SKILL.md` にあり、**リポ直下には一度も存在したことがない**。秘書は起動のたびに Step 1 の Read に失敗し、Subcommands / Failure Modes / env vars を仕様書から把握しないまま Step 2 へ進んでいた。**読めなくても手順は止まらない**ため、この失敗は観測されないまま残り続けた（DESIGN §3.12 が扱う沈黙失敗と同型で、こちらは手順書側に出たもの）。英語版は `skills/shiori-secretary/SKILL_en.md` を指すよう揃えた（README_en と同じ流儀）
+
+### 移行（稼働中の routine には再登録が必要）
+
+1. **登録済みの cloud routine body には旧パスが焼かれている**——本ファイルを直しただけでは稼働中の routine に届かない。`/shiori-secretary` の `schedule`（upsert）で body を再登録する（手順は [ROUTINE_PROMPT.md](./ROUTINE_PROMPT.md) の「cloud routine ライフサイクル管理」節）
+2. 再登録しない場合も**従来どおり動く**——Step 1 が失敗するだけで手順は進む。ただし秘書は仕様書を読まないまま稼働し続ける（Subcommands の把握が起動時オリエンテーションと実地の記憶頼りになる）
+
 ## [1.10.1] - 2026-08-11 — 母体との同期漏れ回収と、検査の穴の補修
 
 機能変更なし。母体 TelegramSecretary との二重管理で**片側にしか入っていなかった修正**を双方向に

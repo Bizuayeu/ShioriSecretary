@@ -25,7 +25,7 @@ Because a cloud routine starts from a fresh clone, load the settings and persona
 
 ## Step 1 — Confirm skill spec
 
-6. Read `<INSTALL_DIR>/SKILL.md` and grasp the Subcommands / Failure Modes / env vars.
+6. Read `<INSTALL_DIR>/skills/shiori-secretary/SKILL_en.md` and grasp the Subcommands / Failure Modes / env vars.
 
 ## Step 2 — Environment setup
 

@@ -4,6 +4,35 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.10.2] - 2026-08-12 — the startup procedure pointed at a path that does not exist (SKILL.md in Step 1)
+
+### Fixed
+
+- **The reference in ROUTINE_PROMPT Step 1 did not exist** — it read `<INSTALL_DIR>/SKILL.md`, but by the plugin layout SKILL.md lives at `skills/shiori-secretary/SKILL.md` and **has never existed at the repository root**. The secretary failed that Read on every startup and moved on to Step 2 without taking in the Subcommands / Failure Modes / env vars from the specification. Because **the procedure does not stop when the Read fails**, the failure survived unobserved (the same shape as the silent failure DESIGN §3.12 addresses, surfacing here on the procedure side). The English edition now points at `skills/shiori-secretary/SKILL_en.md`, matching how README_en refers to it
+
+### Migration (a running routine needs to be re-registered)
+
+1. **The registered cloud routine body still has the old path baked in** — fixing this file alone does not reach a running routine. Re-register the body with `schedule` (upsert) in `/shiori-secretary` (the procedure is in the "cloud routine lifecycle management" section of [ROUTINE_PROMPT_en.md](./ROUTINE_PROMPT_en.md))
+2. Without re-registration it still **works as before** — only Step 1 fails and the procedure continues. The secretary simply keeps running without having read the specification (its grasp of the Subcommands rests on the startup orientation and on what it remembers from practice)
+
+## [1.10.1] - 2026-08-11 — recovering what the twin had missed, and repairing the holes in the checks
+
+No functional change. Fixes that **existed on only one side** of the dual maintenance with the parent TelegramSecretary were recovered in both directions, and the test net and the document hierarchy were put in order.
+
+### Fixed
+
+- **The docstring of `FfmpegAudioPreprocessor.to_float_pcm` contradicted the implementation** — it stated that "when there is no audio stream / decoding fails, an empty array is returned (it does not crash)", but since v1.3.1 the implementation raises `AudioDecodeError` (so that silence and a failed read are not mistaken for each other). This is **the kind of error that misleads whoever reads it**, so the description was brought in line with the implementation (a Raises section)
+- **The digest narrowing table in DESIGN §3.5 had not followed v1.10.0** — `GOALS / STEPS` still read "no narrowing", contradicting the 8-row table in §3.12 of the same document. It now also states that §3.12 is the SSoT for the table-to-prescription mapping
+
+### Added
+
+- **13 tests for the wiring and the failure paths** — `build_git` / `build_sync` (the DI shared by registry and WAL), the fallback when the PDF renderer is absent, audio decoding that breaks partway (raise when not a single frame is obtained, return what was obtained when it is partial, and do not discard what was already obtained even when the flush fails), `Retry-After: 0` and negative values, recovery from a transport error, and three kinds of invalid input at the WAL write path. Coverage 96% → **97%** (`composition` / `http_retry` / `ffmpeg_preprocessor` at 100%)
+- **A bandit security scan was added to CI** — the parent's CI had one from the start and only this repository lacked it. The scope is the whole of the Python being distributed (`scripts/` plus the bundled skill `skills/`), for the same reason ruff is run over `.` — do not leave a layer that ships without being checked
+
+### Changed
+
+- **A table of contents was added to DESIGN and the hierarchy of §3.8 was corrected** — subjects (the 8th table) had been nested under the section for abilities (the 4th table); it is now a section that places both tables side by side (the number §3.8 is kept, along with the references to it from other documents)
+
 ## [1.10.0] - 2026-08-11 — leaving no table without a lid (indexing subjects / steps, a cap for goals)
 
 v1.9.0 brought three tables (individuals / abilities / profile) of the lidless side into the movable
