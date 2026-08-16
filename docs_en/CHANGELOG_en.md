@@ -4,6 +4,30 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.10.3] - 2026-08-16 — a window invariant that only surfaces under failure, and two reading paths that fail quietly
+
+One condition that appears to hold in normal operation and breaks only under failure (the window),
+one guarantee that can be misread as covering more than it does (the WAL),
+and one reference that can be misjudged as missing (a graduated handoff).
+All three sit on the side of **failure modes that raise no error**.
+
+### Fixed
+
+- **The polling-window invariant underestimated the worst-case dwell time (the real cause of the SIGTERM)** — the default window of 540s rested on the assumption that "the worst-case dwell of one cycle = the long-poll `--timeout` (30s)", but what actually pushes past the window is the HTTP-layer retry budget. `watch` rounds the final cycle's long-poll to the remaining window (`poll_timeout` in `main.py`), but **only the long-poll argument gets rounded**; the `api_gateway` running inside it (`retry_count=2` / `request_timeout=40.0`, where **5xx retries immediately without sleeping** — attempts, not waits, consume the time) knows nothing about the window. The worst-case dwell is therefore not 30s but `(2+1) × 40 = 120s`, so `540 + 120 = 660 > 600` breaks. In normal operation no 5xx appears, so `540 + 30 = 570 < 600` looked satisfied — **a condition that surfaces only under failure**, discovered when a long-running session hit a run of 5xx and died with exit 143 (SIGTERM). **The default window is lowered from 540 to 450** (`450 + 3×40 + 30 (post-fetch margin) = 600`)
+- **Do not stop this class of rot with a comment** — the window (`bootstrap.sh`) and the retry budget (`api_gateway`) live in separate files and know nothing of each other, so an invariant written as a note breaks silently the moment one side moves (and it did). `test_poll_window_invariant.py` now **pins the two actual values against each other**, so moving either side turns the suite red
+
+### Changed
+
+- **DESIGN §3.7 now states what the WAL actually covers** — `reconcile` / `settle` decide solely on the presence of `(kind, key)` and never inspect the payload, so **updating the content of an existing record (e.g. appending to the `notes` of an existing task) is not protected by the WAL**. Queuing an intent does not make it a redo candidate because the key already exists; worse, `settle` marks it done, so **it looks applied when it was never applied** (a false positive). The WAL closes the hole "the promised record does not exist"; the hole "the promised content is not in it" can only be closed by ordering (keeping the send and the record inside the same procedure, back to back)
+- **DESIGN §3.12 and SKILL now state that a graduated reference resolves in two places** — references to handoffs are bare file names with no directory component, and `handoff-archive` moves the location without changing the name. After graduation the resolution order is "directly under `handoff/` → `archive/`", and **not being directly under it does not mean it is lost**
+- **The invariant in ROUTINE_PROMPT was rewritten as the actual formula** (`max_duration + (retry_count+1) × request_timeout + post-fetch margin <= bash_timeout/1000`)
+
+### Migration (propagation to a running routine)
+
+1. **Correcting the window does not require re-registering the body** — the registered body only reads `$SHIORI_POLL_SET_SEC`; the value lives in `bootstrap.sh`. If your routine does a fresh clone each session, **the next session starts with 450** once the update is in place. If you inject `SHIORI_POLL_SET_SEC` explicitly through the Routine Environment, that wins — verify you do not
+2. SKILL.md is also read every session, so the post-graduation reference discipline arrives by the same path. **Only the ROUTINE_PROMPT wording needs a body re-registration** (it explains the formula rather than carrying the value, so the next batched re-registration suffices)
+3. Side effect: a shorter window means more polling turns in an idle session (26 → 32 for a 4h session; `MAX_TURNS` follows automatically since the window is part of its formula)
+
 ## [1.10.2] - 2026-08-12 — the startup procedure pointed at a path that does not exist (SKILL.md in Step 1)
 
 ### Fixed

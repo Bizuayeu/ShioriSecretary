@@ -180,10 +180,20 @@ fi
 # env は秘匿のみ)。deadline_epoch は計算"結果"ゆえ env スナップショットに残してよい。
 _shiori_duration="$(python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["session_duration_sec"])' "$_shiori_script_dir/config.json")" || _shiori_die "failed to read session_duration_sec from config.json"
 export SHIORI_SESSION_DEADLINE_EPOCH="${SHIORI_SESSION_DEADLINE_EPOCH:-$(( $(date +%s) + _shiori_duration ))}"  # 停止主軸: この epoch 秒を過ぎたら /goal 停止
-# SHIORI_POLL_SET_SEC の不変条件: max_duration + timeout(30) < bash_timeout/1000 (=600)。
-# 破ると最終サイクルが窓を超えて回り SIGTERM(143) で落ちる。540 が残す 30s のマージンは
-# Telegram 5xx リトライで long-poll が伸びた分の吸収代 (経緯は CHANGELOG v1.4.2)。
-export SHIORI_POLL_SET_SEC="${SHIORI_POLL_SET_SEC:-540}"                     # メッセージ無し時の 1 窓上限 (bash timeout より短く)
+# SHIORI_POLL_SET_SEC の不変条件: 窓 + 1 サイクルの最悪滞留 <= bash_timeout/1000 (=600)。
+# 破ると最終サイクルが窓を超えて回り SIGTERM(143) で落ちる。最悪滞留を決めるのは long-poll の
+# --timeout ではなく HTTP 層の再試行予算である——watch は最終サイクルの long-poll だけを残り窓へ
+# 丸めるが (main.py の poll_timeout)、その内側で走る api_gateway の再試行 (retry_count=2 /
+# request_timeout=40.0、5xx は sleep せず即再試行) は窓を知らない:
+#   450 + (2+1) x 40 + 30(emit/renew の後処理余裕) = 600 = bash_timeout/1000
+# 旧値 540 は最悪滞留を --timeout の 30s と見積もっていたため 540+120=660 > 600 で破れる。平常時は
+# 5xx が出ず 540+30=570 で成立して見える＝障害時にだけ露出する条件だった (経緯は CHANGELOG v1.10.3)。
+# 値を動かすときは test_poll_window_invariant.py が bootstrap と gateway 定数を突合する。
+# cc-defer: 429 の Retry-After sleep (最大 60s x retry_count) は上式に入れていない。入れると窓は 360 まで
+#   落ちアイドル枠のターン数が 1.5 倍になる一方、getUpdates は 30s に 1 回しか叩かず flood 制限に触れない。
+#   昇格トリガー = SIGTERM した枠の stderr に 429 が出たら、窓を下げるのでなく fetch の総予算を残り窓へ
+#   丸める (watch ループは WatchWindow.remaining_seconds を既に持っている)。
+export SHIORI_POLL_SET_SEC="${SHIORI_POLL_SET_SEC:-450}"                     # メッセージ無し時の 1 窓上限 (bash timeout より短く)
 export SHIORI_POLL_BASH_TIMEOUT_MS="${SHIORI_POLL_BASH_TIMEOUT_MS:-600000}"  # ポーリング call の bash tool timeout (=BASH_MAX_TIMEOUT_MS)
 # SHIORI_MAX_TURNS: 日次総量レートキャップ (旧: deadline 異常時の暴走保険、役割変更)。
 # 「~15通/h」を最低保証する天井 = アイドル下限(duration/POLL_SET_SEC) + 通数枠(15通/h)。
