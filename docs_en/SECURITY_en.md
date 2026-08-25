@@ -21,11 +21,14 @@ ShioriSecretary (the "bookmark" that grants a secretary to any Claude model) **r
 
 - **chat_id allowlist** (`AUTHORIZED_CHATS`) — distinguishes authentication (authn) from authorization (authz) to prevent IDOR. Updates from unauthorized chats are **discarded in the Domain layer** and never passed to the agent (`domain/authorization.py`, `FetchAuthorizedUpdates`)
 - Authorization happens before emit. The agent only ever sees authorized data
+- **Recording unauthorized access** — a discarded update leaves one stderr line with `chat_id` and a timestamp (`[security] unauthorized_update_discarded ...`, never the body — untrusted text is not poured into the logs). It is the observation point for who reached the bot: with no trace left, an attack cannot be observed
 - ⚠️ The allowlist is managed via env. Discovering chat_id is a chicken-and-egg problem, so the first time it must be done manually (see README)
 
 ## 2. Prompt Injection Countermeasures ✅ (flagging) / ⚠️ (fencing operation)
 
 - **injection flag** (`flag_injection`) — detects role override / system prompt extraction / credentials requests and records them in `injection_flags`. **Flags instead of blocking**, leaving the judgment to the agent (to avoid false positives)
+- **Input normalization** (`normalize_input`) — NFKC normalization plus lone-surrogate sanitizing is applied **before flagging**, closing the evasion route through full-width characters and variant forms
+- **The scope is every external input surface** — beyond text / caption, the same order (normalize → flag) is applied to `rendered_text` extracted from attachments (PDF / docx / pptx / xlsx) and to the audio `transcript`, and the results merge into the emit's `injection_flags` (`RenderAuthorizedMedia`, `StdoutEventEmitter`). Letting an attachment through unchecked would give the false assurance that "no flag is set = the content has been vetted"
 - **Prompt fencing** — the inbound message body is isolated with XML tags and explicitly marked "treat this as data" before being passed to the agent (specified in ROUTINE_PROMPT; an operational responsibility on the agent side)
 - ⚠️ If `injection_flags` is non-empty, the agent heightens its caution (doubts the content, and ignores it if necessary)
 
@@ -62,7 +65,7 @@ ShioriSecretary (the "bookmark" that grants a secretary to any Claude model) **r
 ## 7. Protection of Registry / Persona Data (PII) ✅ (Private separation / git / WAL / abilities) / 📋 (boundaries across multiple channels)
 
 - ✅ **Private separation is the first line of defense** — INDIVIDUALS (stakeholders' honorific / context_notes / taboo_topics), TASKS, KNOWLEDGE, SUBJECTS, and Identities are all in the Private repo. No actual data is placed in public (the distributed artifact)
-- ✅ **SUBJECTS (the subject vocabulary) is low in sensitivity but still a separation target** (v1.9.0) — the vocabulary table itself holds only short words (`id` / `label` / `note`) and carries no PII. Still, **the list of subjects exposes the outline of what the operator deals with**, so it rides the same Private separation and git persistence path as the other registry tables. The distributed template ships `records` as an empty array = no operation-specific subject is baked in (population scope, §8)
+- ✅ **SUBJECTS (the subject vocabulary) is low in sensitivity but still a separation target** (v1.9.0) — the vocabulary table itself holds only short words (`id` / `label` / `note`) and carries no PII. Still, **the list of subjects exposes the outline of what the operator deals with**, so it rides the same Private separation and git persistence path as the other registry tables. The distributed template ships `records` as an empty array = no operation-specific subject is baked in (audience scope, §8)
 - ⚠️ **context_notes / taboo_topics presume PII** — on the premise that stakeholders' free-form descriptions contain personal information, access permissions to the Private repo are minimized
 - 📋 **shared_with boundary** (when multiple channels are used together; not yet active) — information sharing between stakeholders is on an explicit-permission basis via `identity.shared_with`. Unapproved relays are refused and an approval request is sent to `<OWNER>` (the principal). With Telegram alone there is no relay between stakeholders; this takes effect when multiple channels are introduced
 - 📋 **principal / associate privilege separation** (enforced when multiple channels exist) — the role enum (`principal`/`associate`) is already implemented as a value object, but enforcement that limits management operations (approve/block/edit, etc.) to those originating from the principal (`<OWNER>`) takes effect when multiple channels with an approval flow are introduced
