@@ -110,6 +110,7 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 - [ ] token redact テストが green か（network error 経路含む）
 - [ ] injection_flags / 出力漏洩スキャンの運用が ROUTINE_PROMPT に明記されているか
 - [ ] 配布ドキュメントに固有名（人格名・運用主体名・組織名・ローカル絶対パス）が残っていないか（人格名・運用主体名は `scripts/tests/infrastructure/test_distribution_boundary.py` が追跡ファイル全件を常設検査、残りは grep 検査）
+- [ ] 日英の文書対が揃っているか（本文書は `scripts/tests/infrastructure/test_security_doc_parity.py` が節数・節ごとの箇条数・見出しの状態マーカー列を常設検査。**箇条の順序と訳の内容、他の文書対は目視**——検査は形しか見ない）
 - [ ] プレースホルダ（`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`）が規約どおり使われているか（[STRUCTURE.md](./STRUCTURE.md)）
 
 ## ルート `SECURITY.md` との関係

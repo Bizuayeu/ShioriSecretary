@@ -107,6 +107,7 @@ ShioriSecretary/
 │   │   └── watch_window.py   # wall-clock window of the watch loop (expires after max_duration_seconds)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
+│   │   ├── observability.py  # security observation log of the UseCase layer (one stderr line, never the body)
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
 │   │   ├── fetch_authorized_updates.py / send_reply.py
 │   │   ├── proactive_send.py    # proactive send (a sister UseCase to send-reply with the OffsetStore dependency removed, offset-noninterfering)
@@ -121,7 +122,9 @@ ShioriSecretary/
 │   │   ├── media_failure.py  # failure logging + redact helper shared by render/transcribe
 │   │   ├── telegram/         # api_gateway / media_downloader / http_retry (shared retry, honors 429 Retry-After)
 │   │   ├── state/            # json_state_store / emitter
-│   │   ├── render/ transcribe/ audio/   # markitdown / pdf / moonshine / ffmpeg
+│   │   ├── render/           # markitdown_renderer / pdf_renderer (attachment → rendered_text)
+│   │   ├── transcribe/       # moonshine_transcriber (audio → transcript)
+│   │   ├── audio/            # ffmpeg_preprocessor (preprocessing into float PCM)
 │   │   ├── registry/         # json_registry_store / git_cli (commit&push to fixed branch)
 │   │   └── wal/              # jsonl_wal_log_store (JSONL persistence of the WAL log)
 │   ├── infrastructure/

@@ -10,6 +10,14 @@ ShioriSecretary は母体（TelegramSecretary / Homunculus-Weave）から切り�
 
 禁止語は unicode エスケープで持つ。本ファイル自身も追跡ファイルであり、リテラルで
 書くと自分にマッチして恒久的に赤くなる（パス除外リストを作らない代わりの措置）。
+
+網の限界（見ているのは追跡ファイルの生テキストだけ）:
+- 語が 1 文字でも現れれば赤——CHANGELOG や設計文書で「◯◯を除去した」と当の語を
+  書くと踏む。経緯は「母体固有の呼称」のように婉曲に書く（v1.11.1 の CHANGELOG が例）
+- 検査語は 2 語のみ。組織名・ローカル絶対パス・母体のドメイン語彙は対象外＝
+  SECURITY の配布前チェックリストで grep する側
+- `git ls-files` 依存＝git checkout の外（tarball 展開）では動かない。marketplace
+  経路は clone なので現行は問題ない
 """
 
 from __future__ import annotations

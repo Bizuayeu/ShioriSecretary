@@ -107,6 +107,7 @@ ShioriSecretary/
 │   │   └── watch_window.py   # watch ループの wall-clock 窓（max_duration_seconds で満了）
 │   ├── usecases/             # オーケストレーション + Port
 │   │   ├── ports.py          # Port 定義（Store 群含む）
+│   │   ├── observability.py  # UseCase 層のセキュリティ観測ログ（stderr へ 1 行、本文は載せない）
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
 │   │   ├── fetch_authorized_updates.py / send_reply.py
 │   │   ├── proactive_send.py    # 能動送信（send-reply から OffsetStore 依存を除いた姉妹 UseCase・offset 非干渉）
@@ -121,7 +122,9 @@ ShioriSecretary/
 │   │   ├── media_failure.py  # render/transcribe 共通の失敗ログ + redact ヘルパ
 │   │   ├── telegram/         # api_gateway / media_downloader / http_retry（共通 retry・429 Retry-After 尊重）
 │   │   ├── state/            # json_state_store / emitter
-│   │   ├── render/ transcribe/ audio/   # markitdown / pdf / moonshine / ffmpeg
+│   │   ├── render/           # markitdown_renderer / pdf_renderer（添付 → rendered_text）
+│   │   ├── transcribe/       # moonshine_transcriber（音声 → transcript）
+│   │   ├── audio/            # ffmpeg_preprocessor（float PCM への前処理）
 │   │   ├── registry/         # json_registry_store / git_cli（固定ブランチへの commit&push）
 │   │   └── wal/              # jsonl_wal_log_store（WAL ログの JSONL 永続化）
 │   ├── infrastructure/

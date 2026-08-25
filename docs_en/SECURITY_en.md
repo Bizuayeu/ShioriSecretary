@@ -110,6 +110,7 @@ The boundaries when distributing as a plugin:
 - [ ] Are the token redact tests green (including the network error path)
 - [ ] Is the operation of injection_flags / the output leak scan specified in ROUTINE_PROMPT
 - [ ] Do any proper nouns (persona name / operating-entity name / organization name / local absolute paths) remain in the distributed documentation (persona and operating-entity names are checked permanently across every tracked file by `scripts/tests/infrastructure/test_distribution_boundary.py`; the rest by grep check)
+- [ ] Are the JA/EN document pairs aligned (for this document, `scripts/tests/infrastructure/test_security_doc_parity.py` permanently checks the section count, the per-section bullet count, and the heading status-marker sequence. **Bullet order, translation content, and the other document pairs are checked by eye** — the check sees shape only)
 - [ ] Are the placeholders (`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`) used according to convention ([STRUCTURE_en.md](./STRUCTURE_en.md))
 
 ## Relationship with the Root `SECURITY.md`

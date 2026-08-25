@@ -4,6 +4,22 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.11.5] - 2026-08-25 — writing down, next to each check, what it does not see
+
+The distribution-boundary test and the parity check were both put in place today, and there was nowhere to read what they look at and what they do not.
+The limits go next to the machine (docstrings); what a person still has to look at goes into the pre-distribution checklist.
+The missing `usecases/observability.py` and a space-separated line in the structure diagram were recovered along the way. **No code behavior has changed.**
+
+### Changed
+
+- **The docstring of `test_distribution_boundary.py` now states the limits of the net** — a single occurrence of a word in any tracked file turns it red (writing the word itself in the CHANGELOG etc. trips it, so describe it indirectly) / only two words are checked, so organization names, absolute paths and the upstream's domain vocabulary are out of scope / it depends on `git ls-files`, so it does not run from a tarball
+- **The pre-distribution checklist in SECURITY (both editions) gains a "JA/EN document pairs" item** — for SECURITY, `test_security_doc_parity.py` permanently checks the section count, per-section bullet count and heading marker sequence; **bullet order, translation content and the other document pairs are checked by eye** (the check sees shape only)
+- **STRUCTURE (both editions) aligned with what the check can see** — `usecases/observability.py` was missing from the diagram (exposed by the parent-completeness check once `/doc-check` was changed to split slash-joined lines). The space-separated `render/ transcribe/ audio/` line under `adapters/` cannot be read by the check, so it was expanded to one entity per line
+
+### Migration (propagation to a running routine)
+
+**None required** — this release touches only documentation and a test docstring (outside distribution rule (3)). CLI, schema and behavior are identical to 1.11.4.
+
 ## [1.11.4] - 2026-08-25 — putting the two files that had escaped the check onto the structure diagram
 
 Slash-joined lines in the structure diagram are read by `/doc-check` as a partial listing, so the two implementation SSoT files behind SECURITY §4/§9 went undetected while missing from the diagram.
