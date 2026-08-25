@@ -4,6 +4,24 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.11.3] - 2026-08-25 — the same hole opened a third time, so the eye gives way to a check
+
+The drift by which the English SECURITY comes away from the Japanese canon was found again in §1 / §2 while reviewing the §4 / §9 fix of 1.11.2 — that makes it the **third time**.
+1.11.1 compared the heading count and 1.11.2 the marker sequence, lowering the layer the eye inspects one step at a time; the same hole was sitting in the very next layer down (the bullet count).
+The plan for 1.11.2 had set "make it a device on the third occurrence" as the condition, so the eye is replaced here by a machine net. **No code behavior changes.**
+
+### Added
+
+- **A static check of SECURITY parity across the two languages, `scripts/tests/infrastructure/test_security_doc_parity.py`** — it cuts `docs/SECURITY.md` and `docs_en/SECURITY_en.md` into sections at `## ` headings and asserts three things agree: (1) the section count, (2) the number of bullets (lines starting with `- `) per section, and (3) the status-marker sequence in the heading (✅/⚠️/📋, compared with variation selectors dropped). On failure it lists **every** mismatch with the section name and the JA/EN counts. It looks at **shape only** and judges neither translation quality nor agreement in meaning (what a machine cannot decide is not brought in here). Its subject is likewise limited to the single SECURITY pair — widening it to other pairs across the two languages can wait until drift is observed there. It is a static check that imports no production code
+
+### Fixed
+
+- **`docs_en/SECURITY_en.md` §1 / §2 were missing bullets present in the canon** — three bullets were translated into positions corresponding to the Japanese canon (JA is unchanged): §1's "recording unauthorized access" (the single stderr line `[security] unauthorized_update_discarded ...`, never the body), and §2's "input normalization (`normalize_input`)" and "the scope is every external input surface" (the same normalize → flag order applied to an attachment's `rendered_text` and to the audio `transcript`). **A wording inconsistency in §7** was also unified, from `population scope` to `audience scope` (aligned with the existing wording in CHANGELOG_en)
+
+### Migration (propagation to a running routine)
+
+**None required** — this release touches only documentation and tests, and adds no validation that fires on the read path (outside the scope of distribution rule (3)). The CLI, the schemas, and the behavior are all identical to 1.11.2, and **no prompt body re-registration is needed**.
+
 ## [1.11.2] - 2026-08-25 — letting what the English SECURITY says about the implementation catch up with the implementation
 
 The English SECURITY of this public distribution repository publicly declared defenses that were already implemented — the outbound machine scan and rate limiting — to be "not yet implemented".

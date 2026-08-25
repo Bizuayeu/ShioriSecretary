@@ -122,7 +122,7 @@ ShioriSecretary/
 │   │   ├── registry_cli.py   # CLI wiring for registry CRUD
 │   │   ├── wal_cli.py        # CLI wiring for WAL (wal-append / wal-push / wal-redo / wal-drop). Validation shares registry_cli.canonical_record, injected for redo with reason truncation layered on
 │   │   └── archive_rotate.py # date-based Archive (TASKS/INDIVIDUALS) + category split (KNOWLEDGE)
-│   └── tests/                # tests for all layers (published as part of the distribution; test_distribution_boundary.py permanently checks the absence of upstream-specific appellations)
+│   └── tests/                # tests for all layers (published as part of the distribution; test_distribution_boundary.py permanently checks the absence of upstream-specific appellations; test_security_doc_parity.py permanently checks that the SECURITY pair agrees in shape across the two languages)
 │
 └── (docs/devlog/ is .gitignore-excluded = dev repo only, not included in the distribution)
 ```
