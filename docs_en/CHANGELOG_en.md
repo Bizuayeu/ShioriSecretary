@@ -4,6 +4,55 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.13.0] - 2026-08-25 — strict, but only over production: 7% of the 1299 was the real thing
+
+The previous release wired up type checking but stopped short of `strict = true`. Turning it on
+produced **1299 diagnostics** — a number that made it look premature.
+
+### Mechanism
+
+**Only 92 of the 1299 (7%) were in production code.** The remaining 1207 were in the test layer:
+no-untyped-def and no-untyped-call, i.e. mechanically adding `-> None` to test functions. That
+buys almost nothing in bug detection while leaving every added annotation to be reviewed. pytest
+is what guarantees the tests.
+
+**The value of strict is on the production side.** A mechanical rewrite like `os.path.join` →
+`Path(a) / b` turns a str into a Path. A path where a different type flows into `sys.path` while
+the tests stay green can only be closed by a type checker — and it lives in production code.
+Exempting the test layer leaves that net closed.
+
+### Added
+
+- `strict = true` (`[tool.mypy]`)
+- `ignore_errors` for the test layer (`module = ["tests.*"]`) — the reasoning is kept in a comment
+
+### Fixed
+
+The 92 production diagnostics break down as type-arg 64 / no-untyped-def 22 / no-any-return 4 /
+no-untyped-call 1 / assignment 1. Most were the mechanical `dict` → `dict[str, Any]`, but three
+places gained real information:
+
+- **Unannotated DI seams** (`sync` in `registry_cli`, `git` / `sink` in `wal_cli`, `gateway` in
+  `composition`) — the injection points now state in the type what may be injected
+- **`moonshine_transcriber._model`**, the lazy triple — "not loaded (None) or a triple" is now in the type
+- **`_load_owned_lease`**'s return — written out as `tuple[SessionLease, JsonLeaseStore] | None`
+
+The two places that collapse to `Any` (`record_cls.to_dict()` and `args.handler(args)`) use `cast`
+to restore the contract in the type, with the reason in a comment. Handles without stubs
+(pypdfium2 / moonshine_voice) are spelled `Any` — writing the real type would collapse to `Any`
+anyway under `ignore_missing_imports`.
+
+### Notes
+
+- `read_json_arg` returns `Any`, not `dict`. `add` / `wal-append` pass a single record dict while
+  `import` passes an array; the type is not determined here (the caller `_import_records` already
+  narrows it)
+- The bundled `precognitive-viewer` skill sits outside `mypy_path` and is unaffected (as before)
+
+### Verification
+
+mypy 92→0 / ruff All checks passed / pytest 914 passed (unchanged from the baseline)
+
 ## [1.12.0] - 2026-08-25 — wiring up type checking: the 18 that were hidden behind resolution failures
 
 CI had linting (`ruff check` / `ruff format --check`) but **no type checking**. There was no

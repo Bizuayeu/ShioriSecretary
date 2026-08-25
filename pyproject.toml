@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shiorisecretary"
-version = "1.12.0"
+version = "1.13.0"
 description = "魔法の栞——Opus/Fable/Mythos に秘書機能を持たせるサーバーレス AI 秘書。Telegram Bot API を cloud routine 上で常駐させ、認可済みチャットに秘書エージェント（SecretaryRole）が即応する対話チャネル（追加 API 課金なし・専用サーバ不要）"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -112,6 +112,11 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "N", "B", "SIM", "PTH"]
 mypy_path = "scripts"
 explicit_package_bases = true
 
+# 本番コードは strict。ワークスペースの ToBe（A の lint ＋ B の mypy）に揃える。
+# strict でしか出ない型は実在する: `os.path.join` → `Path(a) / b` のような機械変換は str を
+# Path に変える。テストが緑のまま `sys.path` 等へ別型が流れる経路は、型検査でしか塞げない。
+strict = true
+
 [[tool.mypy.overrides]]
 # 型スタブを持たないサードパーティ。グローバルに ignore_missing_imports すると
 # 自前モジュールの解決漏れまで黙って通るので、当該モジュールだけに限定する。
@@ -124,6 +129,13 @@ module = [
     "reportlab.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# テスト層は strict の対象外。ここで出る 1200 件超は全て no-untyped-def / no-untyped-call、
+# 中身は test 関数への `-> None` 付与という機械的増補で、バグ検出への寄与がほぼ無い一方、
+# 双子（TelegramSecretary）との diff 監査面積だけが増える。テストの担保は pytest が持つ。
+module = ["tests.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 # skills/precognitive-viewer は同梱スキル（独立パッケージ）のテストも信頼性の証拠として公開する。
