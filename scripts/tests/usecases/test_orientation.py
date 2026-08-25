@@ -930,8 +930,8 @@ def test_unrelated_sections_keep_the_default_snapshot():
 
 def _subject(**kw) -> dict:
     base = {
-        "id": "馬",
-        "label": "馬",
+        "id": "経理",
+        "label": "経理",
         "aliases": [],
         "status": "active",
         "note": "",
@@ -984,7 +984,7 @@ def test_subjects_index_keeps_the_vocabulary_selectable():
     """
     digest = _service(
         subjects=[
-            _subject(id="馬", aliases=["horse", "馬事"], note="の" * 300),
+            _subject(id="経理", aliases=["accounting", "けいり"], note="の" * 300),
             _subject(id="建設", label="建設", status="deprecated"),
         ]
     ).build()
@@ -992,8 +992,8 @@ def test_subjects_index_keeps_the_vocabulary_selectable():
         "## subjects (2 records, index: id | label | aliases | status | note)" in digest
     )
     assert "建設 | 建設 | - | deprecated | " in digest  # aliases 空は `-`
-    horse = next(ln for ln in digest.splitlines() if ln.startswith("馬 | "))
-    note = horse.split(" | ")[4]
+    row = next(ln for ln in digest.splitlines() if ln.startswith("経理 | "))
+    note = row.split(" | ")[4]
     assert _utf8_len(note) <= DEFAULT_TOPIC_WIDTH  # 幅は knowledge の topic 列に揃える
     assert note.endswith(TRUNCATION_MARK)
     assert "created_at" not in digest  # 索引は timestamps を運ばない（行あたり最小）
