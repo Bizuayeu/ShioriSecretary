@@ -4,6 +4,32 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.11.0] - 2026-08-25 — one validation across every write path, and promises that could not be kept remain as dead
+
+There are four paths that write into the canon of memory, yet only two of them were validated.
+The remaining two — the WAL's entrance and the redo at startup — let a payload that `add` would reject pass straight into the canon.
+The read side is fail-open and stays silent, and `settle` marking it done plus the 24h cleanup erase the evidence too. This is **a failure mode that raises no error**.
+
+### Added
+
+- **`wal-drop --kind --key`** — drops an intent that has become `dead` from the WAL and **must-succeed** pushes to the fixed branch (explicitly closing out a promise you have decided not to keep). **`pending` / `done` cannot be dropped** (a missing entry likewise exits 2). Leaving no opening for silently discarding a promise you have not kept is the design decision (the SSoT as secretary ethics is "word-deed consistency" in SecretaryRole)
+- **`dead` was added to the WAL's state vocabulary** (`pending` / `done` / `dead`, with an optional field carrying the reason). The schema change is purely additive: an existing line without `reason` round-trips exactly as before. `dead` is not a target of the checkpoint cleanup and does not enter `reconcile` (the input to redo) — because it is **not a redo source but the record of an unkept promise**
+
+### Changed
+
+- **The four write paths now share a single validation gate** — `add` / `import` / `wal-append` / `wal-redo` all call `registry_cli.canonical_record` (the judgment on unknown top-level keys, out-of-vocabulary subjects and out-of-set categories, plus canonicalization through the value objects). Write the validation per path and every new path adds one more "only this one is lax" bypass. The behavior and stderr wording of `add` / `import` are unchanged (making the name public is a pure refactor)
+- **`wal-append` (registry kinds) became fail-closed** (backward incompatible) — an invalid payload exits **2** (stderr `invalid <kind> wal payload: <reason>`) and stops **before anything is written to the log**. Because the WAL is a one-way path out to the remote via a must-succeed push, carrying an invalid payload through to redo leaves "an intent that is pushed yet never applied". Rejecting it at the entrance lets you rewrite it on the spot. The payload written is the canonical form (`from_dict` → `to_dict`; an omitted `subjects` lands as `[]`, and so on). `outbound` kinds have no value object and are unchanged
+- **`wal-redo` now validates each intent and quarantines the failures as `dead`** — it does not write to the registry but moves the state across with a reason attached. stdout changed to `wal redo: redone=N resent=N kept=N dead=N` (**a 4-field form with `dead` added**; passages quoting the old 3-field form have been updated). What `dead` reports is **the total left in the log**, not the number quarantined this time — every remaining dead entry prints one line per startup to stderr as `wal redo: dead <kind> key=<key>: <reason>`. **The exit stays 0** and does not stop the startup path
+- **No payload values are retained in the quarantine reason** — a validation exception message can contain the rejected value itself (a name or a fragment of a note, for individuals / profile), while `dead` persists indefinitely and prints to stderr on every startup. The exception type name plus the head of its message is truncated to **the existing topic width** before being recorded (no new threshold is invented). SECURITY §7 states this alongside the retention exception (held until `wal-drop`)
+- **DESIGN §3.7 is marked in its heading as the SSoT for the WAL design rationale** (the same convention as §3.9 for the resend policy and §3.12 for the startup orientation). The relationship between write paths and validation, the meaning of `dead`, and the retention per state (pending unconditional / dead unconditional / done 24h) are consolidated in that section, with the other documents kept to a summary plus a pointer
+
+### Migration (propagation to a running routine)
+
+1. **No body re-registration is required** — the code and SKILL.md are read every session, so if your routine does a fresh clone each session, the update takes effect from the next session. **Only the ROUTINE_PROMPT wording needs the next batched re-registration** (it explains the procedure rather than carrying a value; the same shape as 1.10.3)
+2. **pending entries written before 1.11.0 are validated at the first redo** — those that pass are applied to the registry as before, and those that do not become `dead`. The window of invalid payloads that older versions accepted loosely and stacked into the WAL is closed by this first redo. Read the stderr line `wal redo: dead <kind> key=<key>: <reason>` and either re-`add` the same key with a correct payload (the next redo's `settle` marks it done = self-healing) or close it out with `wal-drop --kind <kind> --key <key>`
+3. **`wal-append` now rejects with exit 2** (backward incompatible) — a registry-kind payload does not pass unless it is **the very record** you would pass to `add` (including `created_at` / `updated_at`). Where the procedure read "the payload may be identical to the record passed to `add`", it now reads "must be identical". Nothing has been written to the log at the point of rejection, so make no external promise about that intent
+4. **Downgrading below 1.11.0 silently discards `dead` lines** — an older loader skips `dead` as an unknown status with a `ValueError`, and the subsequent rewrite (done-marking / checkpoint) drops it for good. This direction is irreversible and cannot be guarded in code, so do not roll back while `dead` entries remain (work them off first, or set `WAL.jsonl` aside before going back)
+
 ## [1.10.3] - 2026-08-16 — a window invariant that only surfaces under failure, and two reading paths that fail quietly
 
 One condition that appears to hold in normal operation and breaks only under failure (the window),

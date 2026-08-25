@@ -95,7 +95,7 @@ ShioriSecretary/
 │   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
 │   │   ├── session_config.py # session_duration_sec range validation (MAX_SECONDS guard)
 │   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Subject / Ability / Profile / Goal / Step) + derive_role (P×A role derivation, §3.11) + unknown_keys / invalid_subjects (the pure validators of the write paths)
-│   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint / outbound split, DESIGN §3.9)
+│   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint/quarantine, the three states pending/done/dead, outbound split, DESIGN §3.7/§3.9)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py
@@ -106,7 +106,7 @@ ShioriSecretary/
 │   │   ├── manage_registry.py # registry CRUD UseCase
 │   │   ├── orientation.py    # projection for the startup digest (a prescription per table: caps on the long-text field for the 4 capped tables, one-line indexes and count narrowing for the 4 index-side tables, category/subject narrowing, notes tail, handoff selection, DESIGN §3.12)
 │   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
-│   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents / SettleOutboundIntent)
+│   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents [validate injected as a required argument; a failed intent is quarantined as dead] / SettleOutboundIntent / DropDeadIntent)
 │   ├── adapters/
 │   │   ├── atomic_io.py      # atomic write (tmp→os.replace) + corruption-fallback load shared by JSON stores
 │   │   ├── media_failure.py  # failure logging + redact helper shared by render/transcribe
@@ -120,7 +120,7 @@ ShioriSecretary/
 │   │   ├── composition.py    # Composition Root (load_config / build_media_stack)
 │   │   ├── exit_codes.py     # SSoT for exit codes (0/1/2/3/4)
 │   │   ├── registry_cli.py   # CLI wiring for registry CRUD
-│   │   ├── wal_cli.py        # CLI wiring for WAL (wal-append / wal-push / wal-redo)
+│   │   ├── wal_cli.py        # CLI wiring for WAL (wal-append / wal-push / wal-redo / wal-drop). Validation shares registry_cli.canonical_record, injected for redo with reason truncation layered on
 │   │   └── archive_rotate.py # date-based Archive (TASKS/INDIVIDUALS) + category split (KNOWLEDGE)
 │   └── tests/                # tests for all layers (published as part of the distribution)
 │
@@ -214,9 +214,12 @@ ShioriSecretary/
         → if registry_sync is enabled, commit & push (event-driven; non-ff is taken in via rebase; force not used)
 
 [respond] for registration-type replies, write the WAL ahead first (when registry_sync is enabled, say-do consistency):
-        wal-append (intent pending) → wal-push (must-succeed; if it fails, abort the send)
+        wal-append (passes the same validation gate as add and appends the canonical payload as pending; an invalid one exits 2 before anything is written to the log)
+        → wal-push (must-succeed; if it fails, abort the send)
         → registry add → the agent drafts → output leakage scan → send-reply (with --file/--reply-to if needed)
-        * at startup, wal-redo reflects into the registry any intents whose push was missed last time (right after registry-sync)
+        * at startup, wal-redo reflects into the registry any intents whose push was missed last time (right after registry-sync).
+          redo passes the same gate, and a failed intent is not written to the registry but quarantined as dead (reason on
+          stderr, exit 0). A dead entry has two exits: a correct add on the same key (done via settle = self-healing) or wal-drop (DESIGN §3.7)
 
 [proactive send] ad-hoc pushes during granted free time (proactive-send, offset-noninterfering):
         the agent drafts → output leakage scan → proactive-send (no --update-id = does not touch the offset)
