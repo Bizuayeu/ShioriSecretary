@@ -36,9 +36,10 @@ ShioriSecretary (the "bookmark" that grants a secretary to any Claude model) **r
 - The network error path (common to all send/fetch) also redacts token-embedded URLs (proven by demonstrating token leakage with a red test before addressing it)
 - ⚠️ **Hiding secrets at schedule registration time** — when registering a cloud routine via `/shiori-secretary schedule`, the bot token / authorized chats are **injected into the Environment** and never baked into the `RemoteTrigger` body (the events prompt body / session_context) or commits (referenced via `environment_id`). Putting secret values into the body would leave them in the trigger configuration and execution logs
 
-## 4. Output Leak Prevention ⚠️ (agent operational responsibility)
+## 4. Output Leak Prevention ✅ (machine scan) / ⚠️ (agent operational responsibility)
 
-- **Output leak scan** — before sending, the agent confirms that no token / env name / system prompt / **absolute path** has leaked into the reply. **Both send-reply (inbound reply) and proactive-send (active outbound) are in scope** (all outbound text is scanned regardless of the send path)
+- ✅ **Machine scan of outbound text** (`redact_outbound`) — before sending, the body is inspected and the **four shape-determined kinds** (Telegram bot token / GitHub PAT / env variable names with a secret-indicating suffix / local absolute paths) are replaced with `[REDACTED:<kind>]`. A detection **does not block the send**; only the redacted kinds are recorded as a single stderr line (`[security] outbound_redacted ...`, never the redacted values themselves). The inbound side flags whereas the outbound side redacts because sending is irreversible — more redactions from false positives is the safer side. Applied at both `SendReply` and `ProactiveSend` (shared helper in `usecases/outbound.py`; implementation in `domain/output_scan.py`)
+- ⚠️ **Secrets that have no shape are the agent's responsibility** — things no regular expression can determine, such as a stakeholder's circumstances or an unannounced decision, pass straight through the machine scan. Confirming that no system prompt or internal information has leaked into the reply remains the agent's job. **Both send-reply (inbound reply) and proactive-send (active outbound) are in scope** (all outbound text is scanned regardless of the send path)
 - **actionability gate for proactive messaging** — because proactive-send interrupts from our side without being tied to an inbound message, in addition to the leak scan it sets a higher actionability bar, sending signal but not noise (to suppress interruption cost + the misfire surface; the SSoT for the actionability gate is ROUTINE_PROMPT)
 - **Leak scan for generated attachments** — also confirms that no secrets have leaked into the md/docx/image/PDF being sent back. The code does not inspect binary contents = it is the agent's judgment responsibility
 - **Leak scan of transcripts** — secrets in audio (e.g., a password read aloud) could ride into emit via the transcript, so they are included in the scan scope
@@ -92,9 +93,11 @@ The boundaries when distributing as a plugin:
 2. **Never carry a persona name into the distributed scripts** — the upstream's persona and operating-entity names are replaced with neutral wording (internal artifact IDs are kept)
 3. **A validation that fires on the read path must never be ported without migration steps in both language editions of the CHANGELOG** — a mechanical bulk replacement is not shipped (redoing a classification is a judgment, not a conversion)
 
-## 9. Rate Limiting 📋 (not yet implemented; a design requirement)
+## 9. Rate Limiting ✅ (per-chat sliding window)
 
-- A per-chat_id sliding window to defend against cost runaway & DoS (a design requirement). Currently not implemented; it will be added to the UseCase layer once the need becomes apparent
+- **Window definition** — for each authorized chat, at most **30** updates within the most recent **60** seconds are **passed to the agent** (defaults in `domain/rate_limit.py`). Updates beyond the window are discarded without being emitted, leaving one stderr line with `chat_id` / `update_id` / timestamp (`[security] rate_limited_update_discarded ...`, never the body). The allowlist narrows *who* may talk to us but not *how much*, so this is where the path by which a runaway send from an already-authorized device could fire agent turns without limit is closed
+- **The window lives inside the watch process** (in-memory) — it resets when the process restarts and counts independently per chat. Rejected updates are not added to the history, so the window opens on schedule even during a flood
+- ⚠️ A discarded update has already been consumed on the Telegram side (the existing invariant that the offset advances past everything fetched is preserved), so it is **not re-delivered**. The defaults sit at a level that human bursts will not trip, but operations that lower the threshold must assume that the excess is lost
 
 ## Pre-Distribution Checklist
 
