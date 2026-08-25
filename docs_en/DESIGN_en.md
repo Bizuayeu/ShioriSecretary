@@ -4,6 +4,28 @@ Consolidates the **why** of the design. Division of roles — **DESIGN** = why t
 
 > **ShioriSecretary is "a magic bookmark you slip into a Claude model (Opus/Fable/Mythos)"**——a thin layer that grants the secretary role to any model. The design below (separation of deterministic core and agent judgment, template/data separation, a cloud routine residency that runs on a subscription alone with no dedicated server) is the skeleton that supports that "bookmark."
 
+## Table of Contents
+
+- [1. Design Principles](#1-design-principles)
+- [2. Architecture (Clean Architecture, 4 layers)](#2-architecture-clean-architecture-4-layers)
+  - [Mapping to the three-worlds model](#mapping-to-the-three-worlds-model)
+- [3. Data Architecture (registry + Identities)](#3-data-architecture-registry--identities)
+  - [3.1 Two data systems](#31-two-data-systems)
+  - [3.2 Why SSoT = Private JSON](#32-why-ssot--private-json)
+  - [3.3 Why template/data separation (the core of distributability)](#33-why-templatedata-separation-the-core-of-distributability)
+  - [3.4 Why CRUD is agent-driven + wrapped by `/shiori-secretary`](#34-why-crud-is-agent-driven--wrapped-by-shiori-secretary)
+  - [3.5 Why anti-bloat differs per registry table (the firing decision is the importance world)](#35-why-anti-bloat-differs-per-registry-table-the-firing-decision-is-the-importance-world)
+  - [3.6 Why the registry is persisted via git (volatile/persistent separation)](#36-why-the-registry-is-persisted-via-git-volatilepersistent-separation)
+  - [3.7 Why a WAL (Write-Ahead Log) guarantees word-deed consistency (consistency vs durability) ★SSoT for the WAL design rationale](#37-why-a-wal-write-ahead-log-guarantees-word-deed-consistency-consistency-vs-durability-ssot-for-the-wal-design-rationale)
+  - [3.8 Why adding a table costs one line (abilities 4th, subjects 8th)](#38-why-adding-a-table-costs-one-line-abilities-4th-subjects-8th)
+  - [3.9 Why WAL resend is added to outbound (proactive-send) (idempotency for a path without the offset safety net) ★SSoT for the resend policy](#39-why-wal-resend-is-added-to-outbound-proactive-send-idempotency-for-a-path-without-the-offset-safety-net-ssot-for-the-resend-policy)
+  - [3.10 Why artifacts is held as a deliverables layer (the reason to separate it from the deterministic registry tables)](#310-why-artifacts-is-held-as-a-deliverables-layer-the-reason-to-separate-it-from-the-deterministic-registry-tables)
+  - [3.11 Why the role evolves along the two orthogonal P×A axes (PROFILE/GOALS/STEPS, data-driven judgment, the bundled skill)](#311-why-the-role-evolves-along-the-two-orthogonal-pa-axes-profilegoalssteps-data-driven-judgment-the-bundled-skill)
+  - [3.12 Why the startup load is the orientation digest (silent failure and upstream placement) ★SSoT for startup orientation](#312-why-the-startup-load-is-the-orientation-digest-silent-failure-and-upstream-placement-ssot-for-startup-orientation)
+- [4. Scope: differences from the official plugin (/channels) and adoption decisions](#4-scope-differences-from-the-official-plugin-channels-and-adoption-decisions)
+  - [Structural summary](#structural-summary)
+  - [Future decision guidance](#future-decision-guidance)
+
 ## 1. Design Principles
 
 - **Secretary = input-understanding first**: the primary value is "receiving + understanding the content" of `<OWNER>`'s business inputs (voice / photos / documents)
@@ -139,7 +161,11 @@ The registry persistence of §3.6 makes push **best-effort** (a transient failur
 
 > Consistency and durability are distinct problems: a durability hole is plugged with redundancy, but the hole here is "adding redundancy in the same failure domain (the same git push) just dies together," so it is plugged with ordering. The backbone of the design follows §2——the WAL's pure logic (reconcile/settle/checkpoint/quarantine) is Domain, the order-adherence of push/redo is ROUTINE_PROMPT (the subordinate world), and git operations are deterministic. It runs only when `registry_sync` is enabled (a no-op when disabled, backward compatible).
 
-### 3.8 Why abilities was added as a 4th table (a capability catalog, capability extension at the data layer)
+### 3.8 Why adding a table costs one line (abilities 4th, subjects 8th)
+
+The decision to add a table came up twice, and both times it went through on the same skeleton——one line in the table-driven `REGISTRY_SPEC`, one value object. What follows is why each table was needed (why that table has to exist) and the general rule drawn out of them (what to put in code and what to put in data).
+
+#### abilities (capability catalog, 4th table)——capability extension at the data layer
 
 Whereas individuals/tasks/knowledge are "fact data" (with whom, what was requested, how it was judged), `abilities` is a **catalog of the capabilities (skills) the secretary can exercise**——the 4th registry table responsible for "what can be done." Each record holds an invocation signal (`trigger`), a relative path to the skill entity (`skill_path`), and invocation guidance (`guidance`); before responding, the secretary queries `abilities list` for "is there a capability usable for this request" and, if applicable, exercises an external skill (e.g. a divination reading).
 
