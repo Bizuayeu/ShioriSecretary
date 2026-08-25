@@ -4,6 +4,24 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.11.2] - 2026-08-25 — letting what the English SECURITY says about the implementation catch up with the implementation
+
+The English SECURITY of this public distribution repository publicly declared defenses that were already implemented — the outbound machine scan and rate limiting — to be "not yet implemented".
+The heading correspondence confirmed across the two languages in 1.11.1 (12/12) only looks at whether the headings match; it does not detect a section whose content has drifted away from the implementation.
+Because the upstream has no `docs_en/` and the EN edition is a Shiori-specific document, nothing existed to force EN to follow an implementation update made to JA. **No code behavior changes.**
+
+### Fixed
+
+- **`docs_en/SECURITY_en.md` §4 / §9 had not followed the implementation** — §4 lacked the ✅ (machine scan) in its heading and was missing the `redact_outbound` items entirely (the four shape-determined kinds, replacement with `[REDACTED:<kind>]`, a detection that does not block the send and leaves a single stderr line, and application at both `SendReply` and `ProactiveSend`). §9 still carried the single item "not yet implemented (a design requirement)", while the implementation has existed since v1.9.0 (a per-chat_id sliding window). **Both sections were brought in line with the content and the status markers of the Japanese canon** (JA is unchanged)
+
+### Changed
+
+- **Upstream vocabulary left in `scripts/tests/usecases/test_orientation.py` moved to the distributed edition's existing wording** — a leftover from fixing the subject vocabulary of the same test in 1.11.1. The replacements are taken from existing pairs in other tests, inventing no new wording. The fixture and the assertion were fixed as a pair, so **behavior and the test count are unchanged**
+
+### Migration (propagation to a running routine)
+
+**None required** — this release touches only documentation and tests, and adds no validation that fires on the read path (outside the scope of distribution rule (3)). The CLI, the schemas, and the behavior are all identical to 1.11.1, and **no prompt body re-registration is needed**.
+
 ## [1.11.1] - 2026-08-25 — pinning the distribution-boundary promise with a definition and a permanent check
 
 The promise this artifact keeps as something carved out of an upstream — the three distribution rules — was only ever referenced from the CHANGELOG; the definition itself lived nowhere.
