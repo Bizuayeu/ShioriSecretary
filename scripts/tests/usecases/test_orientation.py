@@ -961,7 +961,7 @@ def _step(**kw) -> dict:
 def _goal(**kw) -> dict:
     base = {
         "id": "G-001",
-        "title": "厩舎を建てる",
+        "title": "半年で貯蓄30万円",
         "category": "work",
         "status": "active",
         "target_date": None,
@@ -985,13 +985,13 @@ def test_subjects_index_keeps_the_vocabulary_selectable():
     digest = _service(
         subjects=[
             _subject(id="経理", aliases=["accounting", "けいり"], note="の" * 300),
-            _subject(id="建設", label="建設", status="deprecated"),
+            _subject(id="営業", label="営業", status="deprecated"),
         ]
     ).build()
     assert (
         "## subjects (2 records, index: id | label | aliases | status | note)" in digest
     )
-    assert "建設 | 建設 | - | deprecated | " in digest  # aliases 空は `-`
+    assert "営業 | 営業 | - | deprecated | " in digest  # aliases 空は `-`
     row = next(ln for ln in digest.splitlines() if ln.startswith("経理 | "))
     note = row.split(" | ")[4]
     assert _utf8_len(note) <= DEFAULT_TOPIC_WIDTH  # 幅は knowledge の topic 列に揃える
@@ -1038,13 +1038,15 @@ def test_goals_cap_bounds_the_notes_and_discloses_the_cap():
     goals は件数が少なく本文が長い側なので処方は cap——`_CAP_FIELDS` へ 1 行足すだけで
     丸め規約・非破壊複製・開示が付く。
     """
-    record = _goal(notes="あ" * 500, success_criteria="上棟する")
+    record = _goal(notes="あ" * 500, success_criteria="普通預金の残高が+30万円")
     digest = _service(goals=[record]).build(goals_cap=100)
     assert "## goals (1 records, full, notes cap 100 bytes)" in digest
     capped = _table_json(digest, "goals")[0]
     assert _utf8_len(capped["notes"]) <= 100
     assert capped["notes"].endswith(TRUNCATION_MARK)
-    assert capped["success_criteria"] == "上棟する"  # 丸めるのは支配項 1 つだけ
+    assert (
+        capped["success_criteria"] == "普通預金の残高が+30万円"
+    )  # 丸めるのは支配項 1 つだけ
     assert record["notes"] == "あ" * 500  # 入力レコードは汚さない
 
 
