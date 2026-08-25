@@ -4,6 +4,13 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [Unreleased]
+
+### Changed
+
+- **Expanded `scripts/domain/` in STRUCTURE (both editions) to one file per line and added `output_scan.py` / `rate_limit.py`** — slash-joined lines (`models.py / media.py / …`) could not be resolved as node names by `/doc-check`, which therefore treated `domain/` as a partial listing, so the two implementation SSoT files behind SECURITY §4/§9 went undetected while missing from the diagram. After the expansion the same check enforces the completeness of `domain/` mechanically (confirmed that the two files were reported as undrawn right after the expansion, before adding them)
+- **`category` of the `_goal` fixture in `test_orientation.py` is now `money`** — when the title was aligned to "半年で貯蓄30万円" in 1.11.2, `category: "work"` was left behind. The tests do not inspect category, so no behavior is affected; the value now matches the same goal in `test_registry.py`
+
 ## [1.11.3] - 2026-08-25 — the same hole opened a third time, so the eye gives way to a check
 
 The drift by which the English SECURITY comes away from the Japanese canon was found again in §1 / §2 while reviewing the §4 / §9 fix of 1.11.2 — that makes it the **third time**.

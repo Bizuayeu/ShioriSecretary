@@ -962,7 +962,7 @@ def _goal(**kw) -> dict:
     base = {
         "id": "G-001",
         "title": "半年で貯蓄30万円",
-        "category": "work",
+        "category": "money",
         "status": "active",
         "target_date": None,
         "success_criteria": "",

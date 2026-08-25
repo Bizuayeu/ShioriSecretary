@@ -91,11 +91,20 @@ ShioriSecretary/
 ├── scripts/                  # Clean Architecture 4層
 │   ├── main.py               # CLI entrypoint（subcommands）
 │   ├── domain/               # 純粋ロジック・値オブジェクト
-│   │   ├── models.py / media.py / outbound.py / exceptions.py
-│   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
+│   │   ├── authorization.py  # 認可済み chat_id allowlist（未認可 update は Domain で破棄、SECURITY §1）
+│   │   ├── exceptions.py     # ドメイン例外
+│   │   ├── lease.py          # 並走セッション防止の heartbeat + TTL リースロック
+│   │   ├── media.py          # メディア添付の値オブジェクトと caption 統合
+│   │   ├── models.py         # Telegram update / outbound message の値オブジェクト
+│   │   ├── normalize.py      # 入力正規化と prompt injection フラグ（ブロックせず記録、SECURITY §2）
+│   │   ├── offset.py         # getUpdates の offset 単調増加
+│   │   ├── outbound.py       # outbound 添付メディアの値オブジェクト
+│   │   ├── output_scan.py    # 送信本文の漏洩スキャン（redact_outbound、形状で決まる 4 種を伏せて記録、SECURITY §4）
+│   │   ├── rate_limit.py     # 認可 chat 単位の sliding window（超過分をエージェントへ渡さない判定、SECURITY §9）
 │   │   ├── session_config.py # session_duration_sec の値域検証（範囲ガード・MAX_SECONDS）
 │   │   ├── registry.py       # 管理表 値オブジェクト（Individual / Identity / Task / Knowledge / Subject / Ability / Profile / Goal / Step）＋ derive_role（P×A 役割導出、§3.11）＋ unknown_keys / invalid_subjects（書き込み口の検証純関数）
-│   │   └── wal.py            # WAL 純粋ロジック（reconcile/settle/checkpoint/quarantine・pending/done/dead の三状態・outbound の二分、DESIGN §3.7/§3.9）
+│   │   ├── wal.py            # WAL 純粋ロジック（reconcile/settle/checkpoint/quarantine・pending/done/dead の三状態・outbound の二分、DESIGN §3.7/§3.9）
+│   │   └── watch_window.py   # watch ループの wall-clock 窓（max_duration_seconds で満了）
 │   ├── usecases/             # オーケストレーション + Port
 │   │   ├── ports.py          # Port 定義（Store 群含む）
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py

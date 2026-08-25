@@ -91,11 +91,20 @@ ShioriSecretary/
 ├── scripts/                  # Clean Architecture, 4 layers
 │   ├── main.py               # CLI entrypoint (subcommands)
 │   ├── domain/               # pure logic, value objects
-│   │   ├── models.py / media.py / outbound.py / exceptions.py
-│   │   ├── authorization.py / lease.py / normalize.py / offset.py / watch_window.py
+│   │   ├── authorization.py  # authorized chat_id allowlist (unauthorized updates are discarded in the Domain, SECURITY §1)
+│   │   ├── exceptions.py     # domain exceptions
+│   │   ├── lease.py          # heartbeat + TTL lease lock against concurrent sessions
+│   │   ├── media.py          # media attachment value objects and caption merging
+│   │   ├── models.py         # Telegram update / outbound message value objects
+│   │   ├── normalize.py      # input normalization and prompt-injection flags (flag, never block; SECURITY §2)
+│   │   ├── offset.py         # monotonically increasing getUpdates offset
+│   │   ├── outbound.py       # outbound attachment media value objects
+│   │   ├── output_scan.py    # leak scan of outbound text (redact_outbound; the four shape-determined kinds are redacted and logged, SECURITY §4)
+│   │   ├── rate_limit.py     # per-authorized-chat sliding window (decides what is not passed to the agent, SECURITY §9)
 │   │   ├── session_config.py # session_duration_sec range validation (MAX_SECONDS guard)
 │   │   ├── registry.py       # registry value objects (Individual / Identity / Task / Knowledge / Subject / Ability / Profile / Goal / Step) + derive_role (P×A role derivation, §3.11) + unknown_keys / invalid_subjects (the pure validators of the write paths)
-│   │   └── wal.py            # WAL pure logic (reconcile/settle/checkpoint/quarantine, the three states pending/done/dead, outbound split, DESIGN §3.7/§3.9)
+│   │   ├── wal.py            # WAL pure logic (reconcile/settle/checkpoint/quarantine, the three states pending/done/dead, outbound split, DESIGN §3.7/§3.9)
+│   │   └── watch_window.py   # wall-clock window of the watch loop (expires after max_duration_seconds)
 │   ├── usecases/             # orchestration + Port
 │   │   ├── ports.py          # Port definitions (incl. the Store group)
 │   │   ├── acquire_lease.py / renew_lease.py / release_lease.py

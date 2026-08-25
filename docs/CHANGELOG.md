@@ -4,6 +4,13 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [Unreleased]
+
+### Changed
+
+- **STRUCTURE 日英の `scripts/domain/` を 1 ファイル 1 行に展開し、`output_scan.py` / `rate_limit.py` を載せた**——スラッシュ連結行（`models.py / media.py / …`）は `/doc-check` がノード名として解決できず `domain/` を「部分列挙」扱いにしていたため、SECURITY §4/§9 の実装 SSoT 2 本が図に無くても検出されなかった。展開後は同じ検査が `domain/` の完全性を機械で張る（展開直後に 2 本が undrawn として検出されることを確認してから追加）
+- **`test_orientation.py` の `_goal` フィクスチャの `category` を `money` へ**——1.11.2 で title を「半年で貯蓄30万円」に揃えた際、`category: "work"` が残っていた。テストは category を検査しないため挙動影響なし。`test_registry.py` の同じ goal と同じ値に揃える
+
 ## [1.11.3] - 2026-08-25 — 同じ穴が三度開いたので、目視をやめて検査を置く
 
 英語版 SECURITY が日本語正本から離れる乖離は、1.11.2 の §4/§9 を直した後、その検収でさらに §1/§2 に見つかった——**3 度目**である。
