@@ -4,6 +4,28 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.11.1] - 2026-08-25 — pinning the distribution-boundary promise with a definition and a permanent check
+
+The promise this artifact keeps as something carved out of an upstream — the three distribution rules — was only ever referenced from the CHANGELOG; the definition itself lived nowhere.
+Rule (2) rested on manual grep, and as of v1.11.0 upstream-specific appellations were in fact still sitting in the bundled divination data.
+**Put the definition in SECURITY §8, and make the check a permanent test.** No code behavior changes.
+
+### Added
+
+- **A static check of the distribution boundary, `scripts/tests/infrastructure/test_distribution_boundary.py`** — it reads every file tracked by `git ls-files` and asserts that neither of the two upstream-specific appellations appears on any line (**with no exclusion rules**; every violation is listed as `path:line`). Because the distribution boundary is the tracked set, distribution-excluded directories such as `docs/devlog/` fall outside it naturally. The forbidden words are held as unicode escapes — the test is itself a tracked file, and writing them literally would match itself and stay red forever
+- **A metadata consistency check between the bundled I-Ching spec and its data** — the `format` the spec transcribes is compared against `metadata.format` in the JSON. Replacing an appellation takes edits in both data and spec; fixing only one leaves the spec describing a format name that does not exist
+
+### Changed
+
+- **Upstream-specific appellations were removed from the bundled I-Ching data's `metadata` (`format` / `created_by`)** — **behavior is neutral** (the code never reads `metadata`), and the divination data itself — the 64 hexagrams and 384 lines — is unchanged
+- **The subjects fixture vocabulary in `test_orientation.py` moved to the distributed edition's generic wording** — even as test data, operation-specific subjects expose the outline of what an operator handles (audience scope, SECURITY §7)
+- **`docs_en/DESIGN_en.md` gained a table of contents, and the section structure of §3.8 was aligned with the Japanese canon** — the headings now correspond one-to-one across the two languages, so no section exists in only one of them
+- **The three distribution rules are now written out in SECURITY §8** — until now they were only referenced from the CHANGELOG with no definition anywhere, leaving their content dependent on the memory of a release. The proper-noun item of the pre-distribution checklist now names the range the permanent check covers (persona and operating-entity names)
+
+### Migration (propagation to a running routine)
+
+**None required** — this release touches only documentation and tests, and adds no validation that fires on the read path (outside the scope of distribution rule (3)). The CLI, the schemas, and the behavior are all identical to 1.11.0, and **no prompt body re-registration is needed**.
+
 ## [1.11.0] - 2026-08-25 — one validation across every write path, and promises that could not be kept remain as dead
 
 There are four paths that write into the canon of memory, yet only two of them were validated.

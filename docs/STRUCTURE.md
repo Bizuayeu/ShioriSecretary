@@ -122,7 +122,7 @@ ShioriSecretary/
 │   │   ├── registry_cli.py   # 管理表 CRUD の CLI 配線
 │   │   ├── wal_cli.py        # WAL の CLI 配線（wal-append / wal-push / wal-redo / wal-drop）。検証は registry_cli.canonical_record を共有し、redo 用に reason 切り詰めを被せて注入
 │   │   └── archive_rotate.py # 日付Archive（TASKS/INDIVIDUALS）+ カテゴリ分割（KNOWLEDGE）
-│   └── tests/                # 全層のテスト（配布物として公開）
+│   └── tests/                # 全層のテスト（配布物として公開。test_distribution_boundary.py が母体固有の呼称の不在を常設検査）
 │
 └── （docs/devlog/ は .gitignore 除外＝開発リポのみ、配布物には含まれない）
 ```

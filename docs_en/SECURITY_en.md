@@ -86,6 +86,12 @@ The boundaries when distributing as a plugin:
 - **Not baking personal data into the distributed artifact** is the single biggest distribution-security requirement. Template/data separation (DESIGN §3.3) is also a security mechanism
 - ⚠️ The user obtains their own token from BotFather and holds their state in their own Private repo. The plugin provides only templates and deterministic logic
 
+**The three distribution rules** — the three rules this artifact keeps, release after release, as something carved out of its upstream (TelegramSecretary):
+
+1. **Never make another operator's measured registry values the default** — do not place a fixed number even in an example that states its source; ship "the calibration method, not the values" with the four-step procedure (measure → learn how much a single knob pays → combine → measure again) plus an `<N>` placeholder
+2. **Never carry a persona name into the distributed scripts** — the upstream's persona and operating-entity names are replaced with neutral wording (internal artifact IDs are kept)
+3. **A validation that fires on the read path must never be ported without migration steps in both language editions of the CHANGELOG** — a mechanical bulk replacement is not shipped (redoing a classification is a judgment, not a conversion)
+
 ## 9. Rate Limiting 📋 (not yet implemented; a design requirement)
 
 - A per-chat_id sliding window to defend against cost runaway & DoS (a design requirement). Currently not implemented; it will be added to the UseCase layer once the need becomes apparent
@@ -97,7 +103,7 @@ The boundaries when distributing as a plugin:
 - [ ] Does `.gitignore` include development-only directories (`docs/devlog/`, etc.) and `state/` (actual data)
 - [ ] Are the token redact tests green (including the network error path)
 - [ ] Is the operation of injection_flags / the output leak scan specified in ROUTINE_PROMPT
-- [ ] Do any proper nouns (persona name / operating-entity name / organization name / local absolute paths) remain in the distributed documentation (grep check)
+- [ ] Do any proper nouns (persona name / operating-entity name / organization name / local absolute paths) remain in the distributed documentation (persona and operating-entity names are checked permanently across every tracked file by `scripts/tests/infrastructure/test_distribution_boundary.py`; the rest by grep check)
 - [ ] Are the placeholders (`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`) used according to convention ([STRUCTURE_en.md](./STRUCTURE_en.md))
 
 ## Relationship with the Root `SECURITY.md`

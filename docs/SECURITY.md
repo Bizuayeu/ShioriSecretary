@@ -90,6 +90,12 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 - **配布物に個人データを焼き込まない**ことが最大の配布セキュリティ要件。テンプレート/データ分離（DESIGN §3.3）はセキュリティ機構でもある
 - ⚠️ ユーザーは自分の token を BotFather から取得し、自分の Private に state を持つ。プラグインは雛型と決定論ロジックのみ提供
 
+**配布三則** — 母体（TelegramSecretary）から切り出した配布物として、版を重ねても守る三つの規則:
+
+1. **他人の registry の実測値を既定にしない** — 出所明記の例示でも固有数値は置かず、四段手順（測る → 単一ノブで効きを知る → 併用 → 再測定）＋`<N>` プレースホルダで「値でなく校正方法を配る」
+2. **人格名を配布 scripts に持ち込まない** — 母体の人格名・運用主体名は中立語へ（内部成果物 ID は維持）
+3. **読み取り経路で発火する検証の移植には移行手順を CHANGELOG 両語版に必ず添える** — 機械的な一括置換は配らない（分類のやり直しは判断であって変換ではない）
+
 ## 9. レート制限 ✅（chat 単位 sliding window）
 
 - **窓の定義** — 認可 chat ごとに「直近 60 秒で 30 件まで **エージェントへ渡す**」（`domain/rate_limit.py` の既定値）。窓を超えた update は emit せず破棄し、`chat_id` / `update_id` / 時刻を stderr に 1 行残す（`[security] rate_limited_update_discarded ...`、本文は載せない）。allowlist は「誰が話しかけられるか」を絞るが「どれだけ話しかけられるか」は絞らないため、認可済み端末の暴走送信がエージェント turn を無制限に焚く経路をここで閉じる
@@ -103,7 +109,7 @@ ShioriSecretary（Claude のモデルに秘書を授ける"栞"）は **Claude C
 - [ ] `.gitignore` に開発専用ディレクトリ（`docs/devlog/` 等）と `state/`（実データ）が入っているか
 - [ ] token redact テストが green か（network error 経路含む）
 - [ ] injection_flags / 出力漏洩スキャンの運用が ROUTINE_PROMPT に明記されているか
-- [ ] 配布ドキュメントに固有名（人格名・運用主体名・組織名・ローカル絶対パス）が残っていないか（grep 検査）
+- [ ] 配布ドキュメントに固有名（人格名・運用主体名・組織名・ローカル絶対パス）が残っていないか（人格名・運用主体名は `scripts/tests/infrastructure/test_distribution_boundary.py` が追跡ファイル全件を常設検査、残りは grep 検査）
 - [ ] プレースホルダ（`<AGENT_NAME>` / `<OWNER>` / `<ORGANIZATION>` / `<REPO_ROOT>` / `<BASE_REPO>` / `<PRIVATE_DIR>` / `<INSTALL_DIR>`）が規約どおり使われているか（[STRUCTURE.md](./STRUCTURE.md)）
 
 ## ルート `SECURITY.md` との関係
