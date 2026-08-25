@@ -4,12 +4,19 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
-## [Unreleased]
+## [1.11.4] - 2026-08-25 — putting the two files that had escaped the check onto the structure diagram
+
+Slash-joined lines in the structure diagram are read by `/doc-check` as a partial listing, so the two implementation SSoT files behind SECURITY §4/§9 went undetected while missing from the diagram.
+They are expanded so the machine can see them. **No code behavior has changed.**
 
 ### Changed
 
 - **Expanded `scripts/domain/` in STRUCTURE (both editions) to one file per line and added `output_scan.py` / `rate_limit.py`** — slash-joined lines (`models.py / media.py / …`) could not be resolved as node names by `/doc-check`, which therefore treated `domain/` as a partial listing, so the two implementation SSoT files behind SECURITY §4/§9 went undetected while missing from the diagram. After the expansion the same check enforces the completeness of `domain/` mechanically (confirmed that the two files were reported as undrawn right after the expansion, before adding them)
 - **`category` of the `_goal` fixture in `test_orientation.py` is now `money`** — when the title was aligned to "半年で貯蓄30万円" in 1.11.2, `category: "work"` was left behind. The tests do not inspect category, so no behavior is affected; the value now matches the same goal in `test_registry.py`
+
+### Migration (propagation to a running routine)
+
+**None** — this release touches documentation and a test fixture only (outside distribution rule (3)). CLI, schema, and behavior are identical to 1.11.3.
 
 ## [1.11.3] - 2026-08-25 — the same hole opened a third time, so the eye gives way to a check
 
