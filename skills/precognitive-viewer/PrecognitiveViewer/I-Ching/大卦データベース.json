@@ -2,8 +2,8 @@
   "metadata": {
     "title": "易経六十四卦384爻データベース",
     "version": "2.0.0",
-    "format": "大環主指定フォーマット",
-    "created_by": "Weave with 大環主",
+    "format": "PrecognitiveViewer 標準フォーマット",
+    "created_by": "Weave Project",
     "description": "八幡掛けて八城築かん - 知のインフラ構築プロジェクト用",
     "total_hexagrams": 64,
     "total_lines": 384,
