@@ -4,6 +4,54 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.12.0] - 2026-08-25 — wiring up type checking: the 18 that were hidden behind resolution failures
+
+CI had linting (`ruff check` / `ruff format --check`) but **no type checking**. There was no
+`[tool.mypy]` section either, and running `mypy scripts` locally produced 330 diagnostics.
+
+### Mechanism
+
+**312 of the 330 were resolution failures.** Without `mypy_path` / `explicit_package_bases`, the
+project's own modules (`domain.*` and friends) are mistaken for third-party packages that are
+installed but ship no stubs. Adding the settings alone takes it from **330 to 18**. Those 18 are
+the real ones.
+
+The very impression that "there are too many diagnostics to adopt type checking" was an artifact
+of the missing configuration.
+
+### Added
+
+- `[tool.mypy]` in `pyproject.toml` — `mypy_path` / `explicit_package_bases`. Third-party packages
+  without stubs (`moonshine_voice` / `openpyxl` / `pypdfium2` / `reportlab`) get
+  `ignore_missing_imports` **scoped to those modules only** (applying it globally would silently
+  swallow resolution failures in our own modules too)
+- A `type-check` job in CI (`mypy scripts`). The mypy version is pinned for the same reason as ruff:
+  this repository is one half of a dual-maintained codebase, and unequal versions make the
+  diagnostics disagree
+
+### Fixed
+
+- `config.py` — `registry_dir` is a `Path` on the env branch and may be `None` on the config-file
+  branch, so it is declared `Path | None`
+- `json_state_store.py` — the `parse` argument of `load_json_or_default` is contracted to take
+  `object` (the shape of the decoded value is the caller's responsibility); narrow to `dict` before
+  subscripting (2 sites)
+- `ffmpeg_preprocessor.py` — an `ndarray` behaves like a `Sequence` at runtime but is not one to the
+  type system. **The contract (`to_float_pcm -> Sequence[float]`) is left unchanged**; the intent is
+  written with `cast`
+- `registry_cli.py` — `record_cls` is a value-object class whose concrete type differs per table
+  (it carries `from_dict` / `to_dict`), so it is typed `type[Any]`
+- `wal_cli.py` — `payload.get()` returns `Any | None`; it is settled to `str()` after the existing guard
+- `test_orientation.py` — type annotations on the dict literal and on `**kw`
+
+### Notes
+
+- ⚠️ **`strict` was not enabled.** Measured at 1314 errors across 69 files, which is beyond the scope
+  of "wire up type checking". Going strict is left as a separate piece of work
+- **914 passed — identical before and after.** `ruff check` / `ruff format --check` are unchanged too
+
+---
+
 ## [1.11.5] - 2026-08-25 — writing down, next to each check, what it does not see
 
 The distribution-boundary test and the parity check were both put in place today, and there was nowhere to read what they look at and what they do not.

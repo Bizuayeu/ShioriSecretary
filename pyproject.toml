@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "shiorisecretary"
-version = "1.11.5"
+version = "1.12.0"
 description = "魔法の栞——Opus/Fable/Mythos に秘書機能を持たせるサーバーレス AI 秘書。Telegram Bot API を cloud routine 上で常駐させ、認可済みチャットに秘書エージェント（SecretaryRole）が即応する対話チャネル（追加 API 課金なし・専用サーバ不要）"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -104,6 +104,26 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "N", "B", "SIM", "PTH"]
 # N999 はパッケージ名 `PrecognitiveViewer` 自体で、これは pythonpath と配布ドキュメントに
 # 現れる公開 import パスなので改名できない。scripts/ 側の命名規約は本 ignore の外＝有効なまま。
 "skills/precognitive-viewer/*" = ["N803", "N806", "N999"]
+
+[tool.mypy]
+# scripts/ を import root にする。これが無いと自前モジュール（domain.* 等）が
+# 「インストール済みだがスタブが無い第三者パッケージ」と誤認され、解決漏れだけで
+# 300 件超の診断が出る。
+mypy_path = "scripts"
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+# 型スタブを持たないサードパーティ。グローバルに ignore_missing_imports すると
+# 自前モジュールの解決漏れまで黙って通るので、当該モジュールだけに限定する。
+module = [
+    "moonshine_voice",
+    "moonshine_voice.*",
+    "openpyxl",
+    "openpyxl.*",
+    "pypdfium2",
+    "reportlab.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 # skills/precognitive-viewer は同梱スキル（独立パッケージ）のテストも信頼性の証拠として公開する。

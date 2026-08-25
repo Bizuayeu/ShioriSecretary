@@ -4,6 +4,48 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.12.0] - 2026-08-25 — 型検査を配線する：解決漏れに隠れていた 18 件
+
+CI に lint（`ruff check` / `ruff format --check`）はあったが**型検査が無かった**。`[tool.mypy]` 節も
+持たず、手元で `mypy scripts` を叩くと 330 件出る状態だった。
+
+### 機序
+
+**330 件のうち 312 件は解決漏れだった。** `mypy_path` / `explicit_package_bases` が無いと、自前
+モジュール（`domain.*` 等）が「インストール済みだがスタブが無い第三者パッケージ」と誤認される。
+設定を置くだけで **330 → 18**。残る 18 件が本物である。
+
+「診断が多すぎるから型検査は入れられない」という見え方そのものが、設定の欠落が作った像だった。
+
+### Added
+
+- `[tool.mypy]`（`pyproject.toml`）— `mypy_path` / `explicit_package_bases`。スタブを持たない
+  サードパーティ（`moonshine_voice` / `openpyxl` / `pypdfium2` / `reportlab`）は**当該モジュールに
+  限定して** `ignore_missing_imports`（グローバルに掛けると自前モジュールの解決漏れまで黙って通る）
+- CI に `type-check` ジョブ（`mypy scripts`）。mypy の版は ruff と同じ理由で固定する——本リポは
+  同一コードの二重管理であり、両者を同じ版で揃えないと診断が食い違う
+
+### Fixed
+
+- `config.py` — `registry_dir` は env 分岐が `Path`・設定ファイル分岐が `None` ありうるので
+  `Path | None` を宣言
+- `json_state_store.py` — `load_json_or_default` の `parse` は `object` を受ける契約（デコード結果の
+  形は呼び出し側の責任）。添字アクセスの前に `dict` へ絞る（2 箇所）
+- `ffmpeg_preprocessor.py` — `ndarray` は実行時に `Sequence` 相当だが typing 上は `Sequence` では
+  ない。**契約（`to_float_pcm -> Sequence[float]`）は変えず** `cast` で意図を書いた
+- `registry_cli.py` — `record_cls` は表ごとに具体型が違う値オブジェクトクラス（`from_dict` /
+  `to_dict` を持つ）なので `type[Any]`
+- `wal_cli.py` — `payload.get()` は `Any | None`。既存のガードの後で `str()` に確定させる
+- `test_orientation.py` — dict リテラルと `**kw` に型注釈
+
+### Notes
+
+- ⚠️ **`strict` は入れていない。** 実測 1314 errors / 69 files で、「型検査を配線する」の範囲を
+  超える。strict 化は独立した課題として残す
+- **914 passed — 作業前後で完全一致。** `ruff check` / `ruff format --check` も変化なし
+
+---
+
 ## [1.11.5] - 2026-08-25 — 検査が見ていないものを、検査の隣に書く
 
 配布境界テストとパリティ検査は今日置いたばかりで、何を見て何を見ないかが読める場所に無かった。
