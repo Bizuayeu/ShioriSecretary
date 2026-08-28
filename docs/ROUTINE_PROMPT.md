@@ -95,7 +95,7 @@ source /tmp/shiori-secretary.env.sh && \
    ダイジェストが答えるのは「今どうなっているか」であり、表は相互参照する——「tasks をどう扱うか」の方針（自由時間の運用規範・grant 条件・行使してよい能力）は knowledge / abilities 側にあり、伴走の文脈は profile / goals / steps 側にある：
 
    - **individuals（誰と）** — 相手の tone / honorific / taboo、疎遠な相手の鮮度（全文）
-   - **tasks（何を頼まれ）** — `id | status | priority | due_date | title` の一行要約（全件）＋ active（open / in_progress / blocked）の notes 末尾（既定 4000 バイト）。**done の notes は載らない**。長い notes は handoff 分離前の legacy 堆積ゆえ末尾だけを見て、全文が要るときは `tasks get --key`
+   - **tasks（何を頼まれ）** — `id | status | priority | due_date | title` の一行要約（全件）＋ active（open / in_progress / blocked）の notes 末尾（既定 4000 バイト）。**終端（done / cancelled）の notes は載らない**。長い notes は handoff 分離前の legacy 堆積ゆえ末尾だけを見て、全文が要るときは `tasks get --key`
    - **knowledge（どう判断するか）** — `id | subjects | topic` の索引のみ（`content` は載らない）。判断方針・運用規範（**自由時間の使い方・actionability ゲート・grant 条件**）の在り処を索引で掴む。絞った場合は見出しの `N of M` が母数を開示するので、落ちた分は `--knowledge-category`（認識の型）か `--knowledge-subject`（主題）、または `knowledge get --key` で引く。主題列が `-` の行は主題未付与（付ける価値があると判断したら `knowledge add`／`import` で足す）
    - **subjects（どの軸で引けるか）** — 主題の語彙表の `id | label | aliases | status | note` 索引（**全件**。件数は絞らない——ここは「どの主題で引くか」を選ぶ一覧なので母数を減らすと選べない語が出る。丸まるのは `note` 列だけで、timestamps は載らない）。**`--knowledge-subject` に渡せるのはここの active な id だけ**で、knowledge へ主題を付けるときもこの表の語彙から選ぶ（範囲外は候補列挙付きで exit 2）。足りない語があれば `subjects add` で足す（コード変更は要らない）
    - **abilities（何ができるか）** — 行使できる能力カタログ（`trigger` / `skill_path` / `guidance`、既定は全文。`--abilities-cap` を掛けると `guidance` だけが丸まり、発動判断に要る `trigger` / `skill_path` は丸めない——全文は `abilities get --key`）

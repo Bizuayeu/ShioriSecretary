@@ -4,6 +4,52 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.14.0] - 2026-08-28 — a `cancelled` terminal for TASKS: stop recording a withdrawal as "accomplished"
+
+TASKS had a single terminal status, `done`. Whether a request was withdrawn or its requirement
+simply evaporated, the only word available for closing it was "complete." You can paper over this
+by noting "this was not an achievement" in `notes`, but since **a machine reads `status` while a
+human reads `notes`**, that leaves a ledger whose two halves disagree.
+
+### Mechanism
+
+**The asymmetry was history, not design.** The tables added later all carry a word for the
+non-achieved terminal — GOALS has `abandoned`, STEPS has `skipped`, SUBJECTS has `deprecated`.
+The SecretaryRole template even says of STEPS: "mark it skipped when it is no longer needed
+(**never delete it silently**)." The same thinking stopped at "mark it done when finished" on the
+TASKS line only because TASKS is the oldest table, and the vocabulary that grew with the
+role-evolution tables was never applied back to it.
+
+**Each table takes the verb of its own domain.** A step is skipped, a goal is abandoned, and a
+TASK — **a request originating from someone else** — is cancelled. Giving every table one shared
+word would be less useful than giving each the word its semantics already imply.
+
+**Nothing downstream needed a code change.** `archive_rotate.partition_for_archive` takes an
+injected predicate and hard-codes no `"done"`, and orientation decides what is active from the
+**allow-set** `ACTIVE_TASK_STATUSES` (open / in_progress / blocked) — so adding a terminal word
+automatically closes the active side. No raw `status == "done"` comparison exists in the codebase
+(the WAL `done` is a different domain).
+
+### Added
+
+- `cancelled` in `Task.status` — the terminal for a task closed without meeting its completion
+  criteria. Like `done` it carries `closed_at`, and Archive and orientation treat it identically
+
+### Changed
+
+- `TASKS.template.json`: `status` / `closed_at` / `_archive_policy` updated for two terminals
+- `SecretaryRole.template.md`: the TASKS line now says "never silently mark it done" (the same
+  shape as the STEPS line)
+- `DESIGN.md` §3.5 archive policy and `ROUTINE_PROMPT.md`'s "whose notes are omitted" widened
+  from `done` to the terminals (`done` / `cancelled`)
+
+### Compatibility
+
+This widens the write side only. The fail-closed validation in `canonical_record` applies **to the
+write paths alone** (read paths stay forward-compatible), so older code can still **read** a
+`cancelled` record — it just cannot write one. Migration order: update the code, then write
+`cancelled`. No rewrite of existing data is required.
+
 ## [1.13.0] - 2026-08-25 — strict, but only over production: 7% of the 1299 was the real thing
 
 The previous release wired up type checking but stopped short of `strict = true`. Turning it on

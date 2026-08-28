@@ -95,7 +95,7 @@ The "**when and at what granularity to partition/archive**" of anti-bloat is the
 
 | Registry table | Method (default policy) | Rationale |
 |---|---|---|
-| **TASKS** | Date Archive (done after N days) | Completed tasks are naturally a "past log." They flow chronologically |
+| **TASKS** | Date Archive (done / cancelled after N days) | Closed tasks are naturally a "past log." They flow chronologically |
 | **INDIVIDUALS** | Date Archive (blocked + long no-contact) | Departed parties are rarely turned into a past log |
 | **KNOWLEDGE** | **Category partitioning** (no Archive) | Knowledge is **accumulative in essence** (a case DB is not discarded for being old). Bloat is solved by sharding into category units |
 | **ABILITIES** | **Category partitioning** (no Archive, same shape as KNOWLEDGE) | A capability catalog is also accumulative in essence (not discarded). The partitioning unit/key is defined by the agent when needed (the JSON flexibility of §3.2) |
