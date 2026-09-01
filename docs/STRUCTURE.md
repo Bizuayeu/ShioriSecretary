@@ -97,6 +97,7 @@ ShioriSecretary/
 │   │   ├── media.py          # メディア添付の値オブジェクトと caption 統合
 │   │   ├── models.py         # Telegram update / outbound message の値オブジェクト
 │   │   ├── normalize.py      # 入力正規化と prompt injection フラグ（ブロックせず記録、SECURITY §2）
+│   │   ├── number_lint.py    # 納品物の裸数値スキャン（数字の行に計器トークンが同じ行にあるかの presence 判定、DESIGN §3.13）
 │   │   ├── offset.py         # getUpdates の offset 単調増加
 │   │   ├── outbound.py       # outbound 添付メディアの値オブジェクト
 │   │   ├── output_scan.py    # 送信本文の漏洩スキャン（redact_outbound、形状で決まる 4 種を伏せて記録、SECURITY §4）

@@ -97,6 +97,7 @@ ShioriSecretary/
 │   │   ├── media.py          # media attachment value objects and caption merging
 │   │   ├── models.py         # Telegram update / outbound message value objects
 │   │   ├── normalize.py      # input normalization and prompt-injection flags (flag, never block; SECURITY §2)
+│   │   ├── number_lint.py    # bare-number scan of deliverables (presence judgment: is a gauge token on the same line as a digit, DESIGN §3.13)
 │   │   ├── offset.py         # monotonically increasing getUpdates offset
 │   │   ├── outbound.py       # outbound attachment media value objects
 │   │   ├── output_scan.py    # leak scan of outbound text (redact_outbound; the four shape-determined kinds are redacted and logged, SECURITY §4)

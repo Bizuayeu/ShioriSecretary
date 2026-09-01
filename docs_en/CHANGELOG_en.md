@@ -4,6 +4,75 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.15.0] - 2026-09-02 — a mechanical net over bare numbers in deliverables: cast the net only where the misreading cost is asymmetric
+
+When a number carries no provenance (is it measured, projected, or inherited?), the reader
+cannot decide which numbers to trust. This release adds `lint-numbers`, which picks up these
+"bare numbers" — but all it picks up is the presence of **a gauge token on the same line**,
+and its target is narrowed to **deliverables only**.
+
+### Mechanism
+
+**The problem was the allocation of attention, not notation.** Bare numbers are not a
+notational habit — fix them once and they recur in a window where the writer's attention went
+elsewhere (in upstream operational measurements the bare rate swung widely, dropping and
+relapsing). Therefore zero is not the target (the residue does not asymptotically vanish).
+The net is not "a device for eradication" but "a device that makes you notice in the window
+where attention drifted."
+
+**It is cast on the deliverable side only because the misreading cost is asymmetric.** The
+reader of a handoff is your own next window, and a misreading is corrected on the spot —
+adding a second gate to a side where attention already suffices is additive bias. A
+deliverable, by contrast, is read by the principal and third parties beyond them, and the
+cost of the misreading does not come back to the writer.
+
+**It looks at presence only because correctness does not appear in shape.** The moment you
+start writing exclusion rules (dropping IDs and dates from the candidates), that becomes the
+entrance to validity judgment, and a decision that should not live in the deterministic world
+leaks into code. Every line containing a digit is a candidate, and the linter stops at rough
+targeting. **False negatives > false positives** — a false positive costs one re-read, while
+a false negative leads straight to the danger of "trusting the green", so no single-character
+or high-frequency words are taken as gauge tokens (when in doubt, leave it out = fall to the
+false-positive side).
+
+### Added
+
+- `lint-numbers <path>` — bare-number scan of a deliverable (source md). One JSON line on
+  stdout (`path` / `number_lines` / `covered` / `bare` / `bare_lines`). read-only; touches
+  no config / lease / registry. **Even zero bare lines emit one line** (a silent gauge cannot
+  distinguish "forgot to run" from "all green"). A completed scan exits 0 regardless of bare
+  lines — the binary result is a value inside the JSON, layering no new meaning onto the
+  external contract of exit 0-4. Exit 2 only when the path cannot be read
+- `scripts/domain/number_lint.py` — the pure line-scan function and the gauge-token constant
+  (`GAUGE_TOKENS`, 20 words). Calibrating the vocabulary is an amendment to this single
+  constant and never touches the code structure — **amend it to your own operating vocabulary**
+
+### Changed
+
+- `DESIGN.md` §3.13 (new) — the SSoT for the presence-only and deliverables-only rationale
+- `SKILL.md` / `README.md` / `commands/shiori-secretary.md` — one row in the Subcommands
+  table; a Failure Modes note in SKILL that bare detection does not ride the exit code
+- `ROUTINE_PROMPT.md` — the pre-send checks gain "run `lint-numbers` against the **source md**
+  of a deliverable and write a gauge into each bare line before sending" (both the send-reply
+  and proactive-send paths). **Report the deliverable-side and handoff-side bare rates
+  separately; never merge them** (different populations)
+- `STRUCTURE.md` — `number_lint.py` under `domain/`
+- Language parity: all of the above updated identically in `docs_en/` / `SKILL_en.md` /
+  `README_en.md`
+
+### Compatibility
+
+**Backward compatible** (a new subcommand only; no change to the existing receive / send /
+registry paths). Running the check is **the secretary's procedure**, not a hook in the send
+path — no automatic block is built into `send-reply` / `proactive-send` (the judgment is not
+moved to the deterministic side).
+
+> **Migration for existing users**: (a) the code takes effect from **your next clone / plugin
+> update**. (b) the secretary actually starts running `lint-numbers` in its pre-send checks
+> only **after you re-register the ROUTINE_PROMPT body into your own cloud routine** (updating
+> the md in the repo does not change the procedure of a running routine). Updating the routine
+> is each user's own operation — this repo rewrites nobody's routine.
+
 ## [1.14.0] - 2026-08-28 — a `cancelled` terminal for TASKS: stop recording a withdrawal as "accomplished"
 
 TASKS had a single terminal status, `done`. Whether a request was withdrawn or its requirement
