@@ -4,6 +4,41 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.15.1] - 2026-09-02 — widening the bare-number net to handoffs
+
+The widening to the handoff side, deferred in v1.15.0 as a `cc-defer`, is brought forward
+without waiting for its trigger. The ground is a clarified division of roles — the working
+ingredient that drives the bare rate down is the **naming analysis** of each bare spot, and
+the machine is merely a device that makes that **rough targeting cheap**. The writer of a
+handoff changes every window (attention drifts structurally), so a device that makes you
+notice in the window where attention drifted works the same on the handoff side. The
+division (lint = rough targeting / naming = the substance), separate reporting, and the
+premise that zero is not the target remain unchanged (the history is recorded in DESIGN §3.13).
+
+### Changed
+
+- **The target of `lint-numbers` is widened to deliverables + handoffs** — no code change
+  (the CLI never chose files to begin with). What changes is procedure and declaration:
+  the handover section of `ROUTINE_PROMPT.md` gains "once the block is written, run it
+  before `artifacts-sync`, and name the kind of provenance (gauge, derivation source, or
+  inheritance) on each line in `bare_lines` before sending"; the `cc-defer` comment in
+  `number_lint.py` is retired; SKILL / README / commands wording is synced to
+  "deliverable or handoff"
+- `DESIGN.md` §3.13 — the section title changes from "why deliverables only" to "where it
+  is applied", and a bullet recording the widening is added
+- Language parity: all of the above updated identically in `docs_en/` / `SKILL_en.md` /
+  `README_en.md`
+
+### Compatibility
+
+**Backward compatible** (no code change; procedure and documents only).
+
+> **Migration for existing users**: same as v1.15.0 — (a) the documents arrive with your
+> next clone / plugin update. (b) the secretary actually starts running `lint-numbers` on
+> handoffs only **after you re-register the ROUTINE_PROMPT body into your own cloud
+> routine**. Updating the routine is each user's own operation — this repo rewrites
+> nobody's routine.
+
 ## [1.15.0] - 2026-09-02 — a mechanical net over bare numbers in deliverables: cast the net only where the misreading cost is asymmetric
 
 When a number carries no provenance (is it measured, projected, or inherited?), the reader
