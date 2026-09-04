@@ -107,7 +107,7 @@ Infrastructure → Interface(Adapter) → UseCase → Domain
 | 管理表 | digest 側の絞り | 当たる先 |
 |---|---|---|
 | **KNOWLEDGE** | `--knowledge-latest` / `--knowledge-category` / `--knowledge-subject` | 索引行の件数（`content` は元から載らない） |
-| **TASKS** | `--notes-tail` / `--tasks-latest` | active の notes 末尾 / 一行要約の件数 |
+| **TASKS** | `--notes-tail` / `--tasks-latest` | active の notes 末尾 / **終端**の一行要約の件数（active は絞りの対象外、v1.15.2） |
 | **PROFILE** | `--profile-cap` | `content`（v1.9.0） |
 | **ABILITIES** | `--abilities-cap` | `guidance`（v1.9.0） |
 | **INDIVIDUALS** | `--individuals-cap` | `identity.context_notes`（v1.9.0） |
@@ -242,7 +242,8 @@ individuals/tasks/knowledge が「事実データ」（誰と・何を頼まれ�
       ※ v1.9.0 以降 individuals / abilities / profile、v1.10.0 以降 goals も cap で頭打ちにできる
     + subjects 件数 × 索引行（note は topic_width で丸め、v1.10.0）
     + steps 件数（steps_latest で頭打ち可、v1.10.0）× 索引行
-    + tasks 件数（tasks_latest で頭打ち可）× 一行要約
+    + active タスク数 × 一行要約
+    + min(終端タスク数, tasks_latest) × 一行要約（v1.15.2: 頭打ちは終端のみ）
     + active タスク数 × notes_tail(4000B)
     + knowledge 件数（category / subject / latest で絞り可）× topic_width(120B)
     + handoff_latest(3 件) × handoff_cap(8000B)
@@ -259,14 +260,14 @@ individuals/tasks/knowledge が「事実データ」（誰と・何を頼まれ�
 - **カテゴリ絞り（`--knowledge-category`）**: 上式の `knowledge 件数 × topic_width` 項を category 完全一致で絞って落とす。絞って見えなくなった分は見出しの `N of M` に残る（サイレントに減らさない＝沈黙失敗を新しい形で作らない）。絞りのキーが §3.5「KNOWLEDGE はカテゴリ分割（archive せず蓄積）」と同じ category なのは意図的で、物理シャード分割の閾値に達する前から同じ軸で読める
 - **件数絞り（`--knowledge-latest`）**: 同じ項を**新しい順 N 件**で頭打ちにする（id は日付順に振られるため id の大きい方が新しい——`pick_latest_handoffs` の名前降順と同じ読み筋）。母数の開示は category 絞りと同じ規約で、見出しに `latest N of M` が載る。**選ぶのは新しい順、並べるのは id 昇順のまま**——索引の読み方（不変の規約）は変えず、母数だけを減らす。この捻れは並べ替えではなく**読み方の開示**で解き、latest 指定時のみ見出しに `newest last`（末尾が最新）を加える（未指定の見出しは不変＝既定出力の byte 同一互換を保つ）。`--knowledge-category` と併用すると**絞ってから latest**（M は category 絞り後の件数）で、逆順だと「新しい N 件に該当 category が無ければ 0 件」になり絞りの意味が壊れる。既定は未指定＝全件（後方互換）であり、絞る値は自分のデータの実測から決める（母体運用の worked example は CHANGELOG v1.8.0）
 - **主題絞り（`--knowledge-subject`）と索引の主題併記**: 同じ項を subjects の**要素一致**で絞る（category 絞りと同型。母数開示・該当 0 件でも exit 0＝絞りは観測であって検証ではない）。絞りの順は **category → subject → latest**——latest を先に効かせると「新しい N 件に該当主題が無ければ 0 件」になり絞りの意味が壊れる（category との併用理由と同じ）。索引行は `id | subjects | topic` の 3 列で、主題は `/` 連結・未設定は `-`（列が消えると読み手が桁をずらして誤読する）。**併記列は topic_width の外側**に置く——主題を足したせいで topic の丸め幅が縮むと、索引の読める量が主題の付き方で揺れる
-- **蓋の無い表への上限ノブ（v1.9.0）**: 下の「絞れない床」が示すとおり、v1.8.0 の 4 ノブは knowledge 索引・notes 末尾・handoff 本文の 3 項にしか効かず、床（小表全文＋tasks 一行要約）には手が届かなかった。`--profile-cap` / `--individuals-cap` / `--abilities-cap` / `--tasks-latest` は**この床を初めて可動域に入れる**。cap が当たるのは表の支配的長文フィールド 1 つ（`content` / `identity.context_notes` / `guidance`）だけで、丸めの規約は既存 `_truncate` をそのまま使う（新しい丸め処理を書かない＝読み手が表ごとに切れ方を覚えずに済む）。**既定は未指定＝全文**（非破壊）で、見出しに `full, <field path> cap N bytes` として開示する
+- **蓋の無い表への上限ノブ（v1.9.0）**: 下の「絞れない床」が示すとおり、v1.8.0 の 4 ノブは knowledge 索引・notes 末尾・handoff 本文の 3 項にしか効かず、床（小表全文＋tasks 一行要約）には手が届かなかった。`--profile-cap` / `--individuals-cap` / `--abilities-cap` / `--tasks-latest` は**この床を初めて可動域に入れる**。cap が当たるのは表の支配的長文フィールド 1 つ（`content` / `identity.context_notes` / `guidance`）だけで、丸めの規約は既存 `_truncate` をそのまま使う（新しい丸め処理を書かない＝読み手が表ごとに切れ方を覚えずに済む）。**既定は未指定＝全文**（非破壊）で、見出しに `full, <field path> cap N bytes` として開示する。**`--tasks-latest` は v1.15.2 で終端（done / cancelled 等）にのみ掛かる**——定常タスクは若い id のまま active に居座るため、新しい順 N 件の窓は構造的に active（open / in_progress / blocked）を落とす（人手の校正値は母集団が変われば再発する）ので、active は件数絞りから外して常に全件載せる（UseCase の純関数 `select_task_rows`）
 - **絞れない床（校正で動かせる部分が増えた）**: v1.8.0 で全ノブを最小に振っても残った部分は、小表の全文（individuals / abilities / profile / goals / steps）と tasks の一行要約だった（母体実測で 11,629 バイト＝目標 25,600 の 45%）——絞りの余地が knowledge 索引・notes 末尾・handoff 本文の 3 項しか無い、という制約がここから出ていた。v1.9.0 では **subjects 表が加わって床が上がる一方、上記の上限ノブが床そのものを掘り下げられる**——主題軸（床を押し上げる側）と上限ノブ（床を掘る側）を同版に入れたのはこのため。**v1.10.0 で「蓋の無い表」は消えた**——subjects / steps を索引化し goals に cap を掛けたので、8 表すべてが可動域に入る。**床に残るのは cap 側 4 表（individuals / abilities / profile / goals）の全文と tasks の一行要約だけ**で、索引側は「件数 × 索引行」まで縮む（どの表にどの処方が付くかは下の一覧が SSoT）
 - **表の性質が処方を決める（8 表の処方一覧）★SSoT**: 蓋の掛け方は表ごとの気分ではなく、**1 レコードが長いのか／レコード数が増えるのか**で決まる。前者には cap（支配的長文フィールド 1 つだけを丸める）、後者には索引または件数絞り（行あたりを最小化し、母数は見出しで開示する）。新しい表が生えたら、この二択のどちらかに必ず入れる——どちらでもない表は「蓋の無い表」であり、育ったときに沈黙失敗を再発させる側になる。
 
   | 表 | 処方 | 根拠 |
   |---|---|---|
   | individuals | cap（`identity.context_notes`、`--individuals-cap`） | 1 レコードが長い |
-  | tasks | 一行要約＋`--tasks-latest`（notes は絞った集合に連動） | 件数が増える |
+  | tasks | 一行要約＋`--tasks-latest`（**終端にのみ掛かる——active は免除**、notes は載った集合の active に連動） | 件数が増える |
   | knowledge | `id \| subjects \| topic` 索引＋絞り 3 種（category / subject / latest） | 件数が増える |
   | subjects | 索引（`id \| label \| aliases \| status \| note`、件数絞りは付けない） | `subjects add` で語彙を育てるのが正規ワークフロー＝件数が増える。ただし「どの主題で引くか」を選ぶ一覧ゆえ母数は減らせない——絞るのは行あたりの重さだけ |
   | abilities | cap（`guidance`、`--abilities-cap`） | 1 レコードが長い（`trigger` / `skill_path` は発動判断に要るので丸めない） |
