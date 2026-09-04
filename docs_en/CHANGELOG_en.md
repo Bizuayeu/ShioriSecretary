@@ -4,6 +4,62 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.15.2] - 2026-09-04 — count narrowing no longer drops requests: the active exemption in the tasks projection, and exit-code notation corrected to behavior
+
+`--tasks-latest` narrowed the one-line task summaries to the N newest by ascending id. A
+standing request never advances to a closed status and keeps sitting on the young side of the
+id order, so as the population grows **the request itself is the first to fall out of the
+window** — and a request that does not appear in the startup digest may as well not exist.
+The narrowing target is re-read as **the closed records (done / cancelled, etc.) only**, and
+active tasks (open / in_progress / blocked) are always listed in full. Narrowing is an
+operation that folds records away, not one that folds requests away.
+
+### Changed
+
+- **`--tasks-latest N` is now the count limit for closed records** — active tasks are exempt
+  from the count narrowing and are always listed in full. The heading reads
+  `## tasks (A active + latest N of T terminal records, newest last, ...)`, disclosing the
+  active count A, the closed population T, and the N actually listed separately. `0` means
+  "drop all closed tasks", leaving only the active ones (the **0 means drop everything**
+  convention still applies to the closed side and does not flip back to unset)
+- **A pure function `select_task_rows` is added to the UseCase layer** — it splits active from
+  closed, passes only the closed side through the existing `pick_latest_by_id`, merges them,
+  and returns them ascending by id. `pick_latest_by_id` is unchanged. The notes still follow
+  the listed set = **the notes tail of every active task is included**
+- **The exit-code notation of `artifacts-sync` / `handoff-archive` is corrected to match
+  behavior** (no code change) — exit 1 happens only on an exception in the sync processing,
+  while a push failure is exit 0 plus `pushed=False` on stdout (the commit stays local and is
+  re-sent next time). Rather than re-expressing a best-effort design through exit codes, the
+  notation is brought to the behavior. `wal-push` / `wal-drop` are genuinely must-succeed and
+  stay as they are
+- `SKILL.md` (the canon of the semantics) / `README.md` (the summary) / `DESIGN.md` (§3.12 and
+  the v1.9.0 section) / `ROUTINE_PROMPT.md` are synced to the new semantics
+- Language parity: all of the above updated identically in `docs_en/` / `SKILL_en.md` /
+  `README_en.md`
+
+### Fixed
+
+- **The defect where active tasks fell out of the count-narrowing window and a request became
+  invisible at startup** is closed. It surfaced in live operation of the upstream
+  (TelegramSecretary) — a standing task never advances to a closed status, so it keeps sitting
+  on the young side of the id order and is **the first to be dropped** by a window defined as
+  the N newest by ascending id. Calibrating N by hand recurs in the same shape once the
+  population changes, so it is closed on the code side
+
+### Compatibility
+
+**Backward compatible.** The output with `--tasks-latest` unset does not change. If you had
+calibrated `--tasks-latest` yourself, the digest grows by the active records that now come
+back.
+
+> **Migration for existing users**: (a) the code takes effect from your next clone / plugin
+> update. (b) the behavior lives in the code, so **re-registering the cloud routine body is
+> not required** — the note on the latest-family options in ROUTINE_PROMPT (around Step 5)
+> arrives when you do re-register. (c) if the digest grows, watch the
+> `orientation digest: N bytes` that `orientation` writes to stderr on every run and take it
+> back on the `--notes-tail` side (adjust the length of the notes, not the number of tasks).
+> Calibration values are decided by your own population, so this repo ships none.
+
 ## [1.15.1] - 2026-09-02 — widening the bare-number net to handoffs
 
 The widening to the handoff side, deferred in v1.15.0 as a `cc-defer`, is brought forward

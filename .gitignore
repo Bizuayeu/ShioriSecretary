@@ -35,3 +35,7 @@ _pytest_out.txt
 venv/
 .vscode/
 .idea/
+
+# 開発中の実装計画書と outsource レポート（配布物ではない開発専用の記録）
+IMPLEMENTATION_PLAN.md
+outsource-report-*.html

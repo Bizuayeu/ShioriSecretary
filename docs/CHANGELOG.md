@@ -4,6 +4,50 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.15.2] - 2026-09-04 — 件数絞りが依頼を落とさない（tasks 射影の active 免除と exit 表記の是正）
+
+`--tasks-latest` は tasks 一行要約を id 昇順の末尾 N 件で絞っていた。定常的な依頼は終端へ
+進まないまま id の若い側に居座るので、母数が増えると**依頼そのものが窓から先に落ちる**——
+起動時のダイジェストに載らない依頼は、無いのと同じになる。件数絞りの対象を**終端
+（done / cancelled 等）だけ**に読み替え、active（open / in_progress / blocked）は常に全件
+通す。絞りは記録を畳む操作であって、依頼を畳む操作ではない。
+
+### Changed
+
+- **`--tasks-latest N` は終端レコードの件数上限になった** — active は件数絞りの対象外で
+  常に全件載る。見出しは `## tasks (A active + latest N of T terminal records, newest last, ...)`
+  で active 数 A・終端の母数 T・実際に載った N を分けて開示する。`0` は「終端を全捨て」で
+  active だけが残る（**0 が全捨て**の規約は終端側にそのまま効き、未指定へ逆転しない）
+- **UseCase 層に純関数 `select_task_rows` を追加** — active と終端に分け、終端だけを既存の
+  `pick_latest_by_id` に通して合流し、id 昇順で返す。`pick_latest_by_id` は不変。notes は
+  従来どおり載った集合の active に連動する＝**active 全件の notes 末尾が載る**
+- **`artifacts-sync` / `handoff-archive` の exit 表記を実態へ是正**（コードは無変更）——
+  exit 1 は同期処理の例外時だけで、push 失敗は exit 0 ＋ stdout の `pushed=False`
+  （commit はローカルに残り次回再送）。best-effort 設計を exit code で表現し直すのではなく、
+  表記の側を実態に合わせた。`wal-push` / `wal-drop` は真に must-succeed ゆえ据置
+- `SKILL.md`（意味論の正典）/ `README.md`（要約）/ `DESIGN.md`（§3.12 と v1.9.0 節）/
+  `ROUTINE_PROMPT.md` を新しい意味論へ同期
+- 日英パリティ：上記すべて `docs_en/` / `SKILL_en.md` / `README_en.md` を同内容で更新
+
+### Fixed
+
+- **件数絞りの窓から active が落ち、依頼が起動時に見えなくなる欠陥**を塞いだ。母体
+  （TelegramSecretary）の実運用で顕在化した——定常タスクは終端へ進まないまま id の若い側に
+  居座るため、id 昇順の末尾 N 件という窓では**最初に落ちる側**になる。人手で N を校正しても
+  母集団が変われば同じ形で再発するので、コードの側で塞ぐ
+
+### 互換性
+
+**後方互換**。`--tasks-latest` 未指定時の出力は変わらない。自分で `--tasks-latest` を
+校正していた場合は、active が全件戻るぶんダイジェストが育つ。
+
+> **既存ユーザーの移行手順**: (a) コードは次回の clone / プラグイン更新から有効になる。
+> (b) 挙動はコード側にあるので、**cloud routine の body 再登録は必須ではない**——
+> ROUTINE_PROMPT の latest 系オプションの注記（Step 5 付近）は、再登録した時に届く。
+> (c) ダイジェストが育ったら、`orientation` が毎回 stderr に出す `orientation digest: N bytes`
+> を見て `--notes-tail` の側で収める（tasks の件数ではなく notes の長さで調整する）。
+> 校正値は各自の母集団で決まるため、本リポは値を配らない。
+
 ## [1.15.1] - 2026-09-02 — 裸数値の網を handoff へ広げる
 
 v1.15.0 で先送りにした handoff 側への適用拡大（`cc-defer`）を、トリガーを待たず前倒しで
