@@ -35,8 +35,8 @@ Because a cloud routine starts from a fresh clone, load the settings and persona
 source <INSTALL_DIR>/bootstrap.sh
 ```
 
-- Success (`[shiori-secretary-bootstrap] session_id=session-xxxxxxxx` → `ready`) → go to Step 3
-- Failure → dependency resolution impossible. Leave stderr in the Routine log and terminate
+- Success (exit 0, stdout shows `[shiori-secretary-bootstrap] session_id=session-xxxxxxxx` → `ready`) → go to Step 3
+- Failure (non-zero exit, stderr shows `[shiori-secretary-bootstrap] FAIL: ...`) → dependency resolution impossible. Leave stderr in the Routine log and terminate. **A failed call never prints `ready`** — the first `FAIL:` aborts the whole `source` (v1.15.3; before that, the abort did not take effect when sourced, and `ready` followed the `FAIL:` lines)
 
 **Re-sourcing the env snapshot (important)**: the Bash tool of Claude Code / cloud routine is a **fresh shell on every call** (only cwd persists, **env is volatile between calls**). Therefore `SHIORI_SESSION_ID` / `SHIORI_INSTALL_DIR` etc. exported by `source bootstrap.sh` **do not survive** into subsequent calls. bootstrap **writes these out as an env snapshot** to `SHIORI_ENV_FILE` (default `/tmp/shiori-secretary.env.sh`), so **each Bash call in Steps 4-8 must always run the following at its start**:
 
@@ -163,10 +163,14 @@ Procedure for each turn:
 
 ```bash
 source /tmp/shiori-secretary.env.sh && \
-remaining=$(( SHIORI_SESSION_DEADLINE_EPOCH - $(date +%s) ))
+remaining=$(( SHIORI_SESSION_DEADLINE_EPOCH - $(date +%s) )) && \
+window=$(( remaining < SHIORI_POLL_SET_SEC ? remaining : SHIORI_POLL_SET_SEC ))
 if [ "$remaining" -le 0 ]; then echo "DEADLINE_REACHED"; \
-  else echo "window=$(( remaining < SHIORI_POLL_SET_SEC ? remaining : SHIORI_POLL_SET_SEC ))"; fi
+  elif [ "$remaining" -le "$SHIORI_TERMINAL_RESERVE_SEC" ]; then echo "TERMINAL remaining=$remaining window=$window floor=$SHIORI_TERMINAL_RETURN_FLOOR_SEC"; \
+  else echo "window=$window"; fi
 ```
+
+- **When `TERMINAL` appears, run the two-stage close** (the terminal reservation is not a reason to stop polling; it is a reason to make the deliverables durable first): **(i) if the handoff is not yet written, skip the window and write** — follow Step 5 to `Write` the handoff block → `lint-numbers` → `artifacts-sync`. **(ii) if it is already written, run one more watch with `window` while `remaining` is at or above `floor`** (the floor leaves room to reply if that window receives a message); below `floor`, go to Step 8. The reservation `SHIORI_TERMINAL_RESERVE_SEC` (default 1500) and the floor `SHIORI_TERMINAL_RETURN_FLOOR_SEC` (default 600) live in bootstrap.sh, and `test_poll_window_invariant.py` pins the relation `reservation > floor >= window`. **Read this call's output before acting in the next call** — folding the arithmetic and the watch into one call turns the check into a formality
 
 2. **Run watch in the foreground** (do not append `&`). For this call **only**, explicitly set the bash tool's `timeout` to `$SHIORI_POLL_BASH_TIMEOUT_MS` (=600000):
 

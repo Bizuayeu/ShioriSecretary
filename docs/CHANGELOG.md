@@ -4,6 +4,41 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.15.3] - 2026-09-10 — 中断は推奨経路でこそ効かせる（source 形態の bootstrap 中断と、終端予約の稼働パラメータの本体収載）
+
+bootstrap の依存導入が pip の read timeout で落ちて `FAIL:` が出たのに、同じ stdout の最終行に
+`ready` が出る——`_shiori_die` は exec 形態では `exit 1` でシェルごと止まるが、source 形態では
+`return 1` が関数から抜けるだけで `cmd || _shiori_die` の次の行がそのまま走る。ROUTINE_PROMPT が
+推奨する経路（source）こそが中断の効かない側だった（母体で実際に発生）。あわせて、終端で窓を
+止めて書込へ移る閾値と watch へ戻す床が本文のどこにも無く、運用の申し送りだけが運んでいたので、
+どちらも bootstrap.sh を本体として収める。
+
+### Fixed
+
+- **source 形態の bootstrap が致命失敗の直後も走り切り、最終行に `ready` を出していた** — `_shiori_die`
+  の呼び出し 7 箇所を `cmd || { _shiori_die "..."; return 1; }` に改めた。トップレベルの `return 1` は
+  sourced ファイル自体から抜ける（exec 形態では `_shiori_die` の `exit 1` が先に効くので不達）。失敗
+  した call は exit 非 0 で返り、env snapshot も `ready` も出ない。ROUTINE_PROMPT Step 2 の成否判定を
+  exit code と `FAIL:` の有無で書き直した（旧文言「`ready` → Step 3」は、失敗時にも `ready` が出る
+  以上、判定として機能していなかった）
+
+### Added
+
+- **終端予約の稼働パラメータを bootstrap.sh に収載** — `SHIORI_TERMINAL_RESERVE_SEC`（既定 1500）と
+  `SHIORI_TERMINAL_RETURN_FLOOR_SEC`（既定 600、床＝窓＋返信の所要）。env snapshot と起動ログに載る。
+  ROUTINE_PROMPT Step 6 の残り窓 call が `remaining <= RESERVE` で `TERMINAL remaining=N window=M
+  floor=F` を出し、(i) 申し送り未書込なら書込へ、(ii) 書込済みなら `floor` 以上で 1 窓戻す、の
+  二段構えを本文に置いた（判定は算術の call、行為は次の call）
+- **テスト** — `test_bootstrap_abort.py`（静的: `_shiori_die` の全呼び出しが `return 1` 同梱の形／
+  挙動: fake python で pip を落として `source` し、exit 非 0・`ready` 不在・env snapshot 未生成を張る。
+  bash の無い環境は skip）、`test_poll_window_invariant.py` に `予約 > 床 >= 窓` の突合を追加
+
+### Notes
+
+- **稼働 body への波及**: bootstrap.sh は fresh clone ゆえ配布元 main に入った次の枠から効く（再登録
+  不要）。ROUTINE_PROMPT Step 2 / Step 6 の文言は body 再登録が別途要る——再登録までは旧 body が
+  新 bootstrap で走り、失敗時は exit 非 0 で返るので旧文言の「失敗 → 終了」がそのまま正しく働く
+
 ## [1.15.2] - 2026-09-04 — 件数絞りが依頼を落とさない（tasks 射影の active 免除と exit 表記の是正）
 
 `--tasks-latest` は tasks 一行要約を id 昇順の末尾 N 件で絞っていた。定常的な依頼は終端へ

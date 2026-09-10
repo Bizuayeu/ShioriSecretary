@@ -19,6 +19,11 @@ if [ "${BASH_SOURCE[0]:-}" != "${0:-}" ]; then
     _shiori_sourced=1
 fi
 
+# 呼び出しは必ず `cmd || { _shiori_die "..."; return 1; }` の形で書く（test_bootstrap_abort.py が張る）。
+# exec 形態は `exit 1` でシェルごと止まるが、source 形態の `return 1` はこの関数から抜けるだけで
+# 呼び出し元の次の行が走る——依存導入が落ちても `ready` まで走り切る（source こそ推奨経路なのに、
+# 中断が効かないのはその側）。トップレベルの `return 1` を同梱すると sourced ファイル自体から抜ける
+# （exec 形態では exit が先に効くので不達）。
 _shiori_die() {
     echo "[shiori-secretary-bootstrap] FAIL: $*" >&2
     if [ "$_shiori_sourced" = "1" ]; then
@@ -75,17 +80,17 @@ _shiori_script_dir="$(cd "$(dirname "$_shiori_script_path")" && pwd)"
 if [ "${SHIORI_MEDIA_ENABLE_DOWNLOAD:-true}" != "false" ]; then
     if [ "${SHIORI_BUNDLE_VOICE:-true}" != "false" ]; then
         _shiori_log "Heavy mode: installing media+voice extras from pyproject..."
-        python -m pip install --quiet -e "$_shiori_script_dir[media,voice]" || _shiori_die "media+voice deps install failed"
+        python -m pip install --quiet -e "$_shiori_script_dir[media,voice]" || { _shiori_die "media+voice deps install failed"; return 1; }
     else
         _shiori_log "Heavy mode (BUNDLE_VOICE=false): installing media extras from pyproject..."
-        python -m pip install --quiet -e "$_shiori_script_dir[media]" || _shiori_die "media deps install failed"
+        python -m pip install --quiet -e "$_shiori_script_dir[media]" || { _shiori_die "media deps install failed"; return 1; }
         _shiori_log "voice deps skipped (BUNDLE_VOICE=false) -> 音声は skipped にフォールバック"
     fi
 else
     _shiori_log "Medium mode (MEDIA_ENABLE_DOWNLOAD=false): installing base deps only (httpx)..."
-    python -m pip install --quiet -e "$_shiori_script_dir" || _shiori_die "base deps install failed"
+    python -m pip install --quiet -e "$_shiori_script_dir" || { _shiori_die "base deps install failed"; return 1; }
 fi
-python -c "import httpx" >/dev/null || _shiori_die "httpx import failed after install"
+python -c "import httpx" >/dev/null || { _shiori_die "httpx import failed after install"; return 1; }
 
 # --- Session ID 自動 export (運用律 B 案) ---
 # lease acquire / watch / send-reply / lease renew が同じ owner を共有するように、
@@ -108,7 +113,7 @@ _shiori_log "install_dir=$SHIORI_INSTALL_DIR state_dir=$SHIORI_STATE_DIR"
 # --- 設定検証 (env + config.json の欠損/不正は exit 2 で fail-fast) ---
 # validate-config を deadline 計算より先に実行する。config.json 不在/欠落/範囲外をここで弾けば、
 # 後段の session_duration_sec 取得は「検証済み」前提で単純化できる（取得前に die させる）。
-(cd "$_shiori_script_dir" && python scripts/main.py validate-config) || _shiori_die "validate-config failed"
+(cd "$_shiori_script_dir" && python scripts/main.py validate-config) || { _shiori_die "validate-config failed"; return 1; }
 
 # --- REGISTRY_DIR の絶対パス固定 (registry_dir も cwd 依存 .resolve() を回避)---
 # config.json の registry_dir（2リポ親起点の相対）を bootstrap 実行時 cwd（=2リポ親）基準で絶対化して
@@ -178,7 +183,7 @@ fi
 # session_duration_sec は config.json が正典 (validate-config 検証済み)。bootstrap はローカル取得して
 # deadline を計算するのみ。SHIORI_SESSION_DURATION_SEC env は作らない (純2層: duration 設定値を env に置かない、
 # env は秘匿のみ)。deadline_epoch は計算"結果"ゆえ env スナップショットに残してよい。
-_shiori_duration="$(python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["session_duration_sec"])' "$_shiori_script_dir/config.json")" || _shiori_die "failed to read session_duration_sec from config.json"
+_shiori_duration="$(python -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["session_duration_sec"])' "$_shiori_script_dir/config.json")" || { _shiori_die "failed to read session_duration_sec from config.json"; return 1; }
 export SHIORI_SESSION_DEADLINE_EPOCH="${SHIORI_SESSION_DEADLINE_EPOCH:-$(( $(date +%s) + _shiori_duration ))}"  # 停止主軸: この epoch 秒を過ぎたら /goal 停止
 # SHIORI_POLL_SET_SEC の不変条件: 窓 + 1 サイクルの最悪滞留 <= bash_timeout/1000 (=600)。
 # 破ると最終サイクルが窓を超えて回り SIGTERM(143) で落ちる。最悪滞留を決めるのは long-poll の
@@ -204,7 +209,15 @@ export SHIORI_POLL_BASH_TIMEOUT_MS="${SHIORI_POLL_BASH_TIMEOUT_MS:-600000}"  # �
 _shiori_msg_per_hour=15
 _shiori_max_turns_calc=$(( _shiori_duration / SHIORI_POLL_SET_SEC + _shiori_msg_per_hour * _shiori_duration / 3600 ))
 export SHIORI_MAX_TURNS="${SHIORI_MAX_TURNS:-$(( _shiori_max_turns_calc < 30 ? 30 : _shiori_max_turns_calc ))}"
-_shiori_log "deadline-driven poll: deadline=$SHIORI_SESSION_DEADLINE_EPOCH (now+${_shiori_duration}s from config.json), window<=${SHIORI_POLL_SET_SEC}s, max_turns=${SHIORI_MAX_TURNS}, bash timeout ${SHIORI_POLL_BASH_TIMEOUT_MS}ms"
+# 終端予約の二段構え。残り窓 <= RESERVE で窓を回さず書込（handoff Write → artifacts-sync）へ移り、
+# sync 後の余剰が FLOOR 以上なら残り窓で watch へ戻す。終端予約は『窓を止める時間』でなく
+# 『成果物を先に durable にする順序』——書いて sync した後の余剰は応答性へ返せる。
+# 1500 は母体の 4h 枠運用での採用値（実運用では残り 1,300〜1,700s 帯で移行していた）、
+# 600 は「戻した窓で着信があれば返信まで入る」所要（窓 450s ＋ 起草・送信・記録）。
+# 値の関係 RESERVE > FLOOR >= POLL_SET_SEC は test_poll_window_invariant.py が張る。
+export SHIORI_TERMINAL_RESERVE_SEC="${SHIORI_TERMINAL_RESERVE_SEC:-1500}"
+export SHIORI_TERMINAL_RETURN_FLOOR_SEC="${SHIORI_TERMINAL_RETURN_FLOOR_SEC:-600}"
+_shiori_log "deadline-driven poll: deadline=$SHIORI_SESSION_DEADLINE_EPOCH (now+${_shiori_duration}s from config.json), window<=${SHIORI_POLL_SET_SEC}s, max_turns=${SHIORI_MAX_TURNS}, bash timeout ${SHIORI_POLL_BASH_TIMEOUT_MS}ms, terminal reserve=${SHIORI_TERMINAL_RESERVE_SEC}s floor=${SHIORI_TERMINAL_RETURN_FLOOR_SEC}s"
 
 # --- 派生 env を source 可能ファイルへ書き出し (Bash tool は call 間で env 揮発) ---
 # Claude Code / cloud routine の Bash tool は call 毎に fresh shell (cwd のみ persist、env は揮発)。
@@ -221,11 +234,13 @@ _shiori_env_file="${SHIORI_ENV_FILE:-/tmp/shiori-secretary.env.sh}"
     echo "export SHIORI_POLL_SET_SEC=$(printf '%q' "$SHIORI_POLL_SET_SEC")"
     echo "export SHIORI_POLL_BASH_TIMEOUT_MS=$(printf '%q' "$SHIORI_POLL_BASH_TIMEOUT_MS")"
     echo "export SHIORI_MAX_TURNS=$(printf '%q' "$SHIORI_MAX_TURNS")"
+    echo "export SHIORI_TERMINAL_RESERVE_SEC=$(printf '%q' "$SHIORI_TERMINAL_RESERVE_SEC")"
+    echo "export SHIORI_TERMINAL_RETURN_FLOOR_SEC=$(printf '%q' "$SHIORI_TERMINAL_RETURN_FLOOR_SEC")"
     # registry_dir は registry を使う環境でのみ存在（config.json に registry_dir があれば上で絶対化済み）。
     if [ -n "${SHIORI_REGISTRY_DIR:-}" ]; then
         echo "export SHIORI_REGISTRY_DIR=$(printf '%q' "$SHIORI_REGISTRY_DIR")"
     fi
-} > "$_shiori_env_file" || _shiori_die "failed to write env snapshot: $_shiori_env_file"
+} > "$_shiori_env_file" || { _shiori_die "failed to write env snapshot: $_shiori_env_file"; return 1; }
 export SHIORI_ENV_FILE="$_shiori_env_file"
 _shiori_log "env snapshot -> $_shiori_env_file"
 

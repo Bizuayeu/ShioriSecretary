@@ -4,6 +4,47 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.15.3] - 2026-09-10 — an abort must work on the recommended path (sourced bootstrap abort, and the terminal-reservation parameters moved into the body)
+
+When dependency installation failed on a pip read timeout, `FAIL:` lines appeared — and the same
+stdout still ended with `ready`. `_shiori_die` stops the whole shell with `exit 1` when executed,
+but when sourced its `return 1` only leaves the function, so the line after `cmd || _shiori_die`
+runs anyway. The path ROUTINE_PROMPT recommends (source) was exactly the one where the abort did
+not take effect (this happened in the upstream deployment). Separately, the threshold for stopping
+the poll to write at the end of a session and the floor for returning to watch existed nowhere in
+the body — only the operational handoff notes carried them — so both now live in bootstrap.sh.
+
+### Fixed
+
+- **A sourced bootstrap kept running after a fatal failure and printed `ready` on the last line** —
+  all 7 `_shiori_die` call sites now read `cmd || { _shiori_die "..."; return 1; }`. A top-level
+  `return 1` leaves the sourced file itself (when executed, `_shiori_die`'s `exit 1` fires first, so
+  the `return` is never reached). A failed call returns non-zero and writes neither the env snapshot
+  nor `ready`. ROUTINE_PROMPT Step 2 now judges success by exit code and the presence of `FAIL:`
+  (the old wording "`ready` → Step 3" could not act as a check while `ready` also appeared on failure)
+
+### Added
+
+- **Terminal-reservation parameters in bootstrap.sh** — `SHIORI_TERMINAL_RESERVE_SEC` (default 1500)
+  and `SHIORI_TERMINAL_RETURN_FLOOR_SEC` (default 600; the floor is one window plus the time to reply).
+  Both appear in the env snapshot and the startup log. The remaining-window call in ROUTINE_PROMPT
+  Step 6 prints `TERMINAL remaining=N window=M floor=F` once `remaining <= RESERVE`, and the body now
+  states the two-stage close: (i) write the handoff first if it is not written yet, (ii) if it is,
+  return one window to watch while `floor` or more remains (the arithmetic decides in one call, the
+  action happens in the next)
+- **Tests** — `test_bootstrap_abort.py` (static: every `_shiori_die` call carries `return 1`;
+  behavioral: a fake python fails pip, the script is sourced, and non-zero exit / no `ready` / no env
+  snapshot are asserted; skipped where bash is absent), plus a `reservation > floor >= window` pin in
+  `test_poll_window_invariant.py`
+
+### Notes
+
+- **Reaching the live body**: bootstrap.sh is cloned fresh each session, so the fix is live from the
+  first session after it lands on the distribution's main (no re-registration). The ROUTINE_PROMPT
+  wording in Step 2 / Step 6 needs a separate body re-registration — until then the old body runs on
+  the new bootstrap, and since failures now return non-zero, the old "Failure → terminate" line works
+  as written
+
 ## [1.15.2] - 2026-09-04 — count narrowing no longer drops requests: the active exemption in the tasks projection, and exit-code notation corrected to behavior
 
 `--tasks-latest` narrowed the one-line task summaries to the N newest by ascending id. A
