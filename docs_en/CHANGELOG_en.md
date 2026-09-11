@@ -4,6 +4,29 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.16.0] - 2026-09-11 — a deterministic question is answered by the digest (the last-confirmed-outbound line)
+
+To decide "has today's scheduled send (e.g. the daily report) already gone out?", every startup
+opened `WAL.jsonl` and read it by hand. That reading has two ways to go wrong — reading a field
+that does not exist, and reading "there is an outbound line = today's is sent" — and both
+occurred in the upstream deployment. The judgment stays the secretary's job, but "when was the
+last confirmed outbound send?" is deterministic, so two lines in the digest remove the hand-reading.
+
+### Added
+
+- **`## outbound` right after counts in `orientation`** — projects the outbound kind of the WAL into
+  `last_sent: <created_at> (created_at, UTC) | <first topic_width bytes of the text>` (the newest
+  entry whose status is done = happy-path settled = a recorded successful send; chosen by time, so a
+  redo rewrite that reorders lines still yields the newest; the text has its newlines collapsed to
+  spaces before truncation; `none` if there is none) and `pending: N` (intents written but not
+  confirmed sent — no timestamp, because a timestamp reads as "sent"). The heading discloses what
+  done/pending mean and that `wal-redo`'s checkpoint purges done entries past retention — `none`
+  means "no confirmed send within retention", not "never sent". If the WAL cannot be read, stderr
+  gets `outbound wal unreadable` and the digest continues with `none` (the same fail-open as the
+  handoff reader). The UseCase is `summarize_outbound` (a pure function); the wiring is
+  `registry_cli._read_outbound_entries` (read-only, never touches git). ROUTINE_PROMPT Step 5
+  item 10 now says to judge from this line instead of hand-reading the WAL
+
 ## [1.15.3] - 2026-09-10 — an abort must work on the recommended path (sourced bootstrap abort, and the terminal-reservation parameters moved into the body)
 
 When dependency installation failed on a pip read timeout, `FAIL:` lines appeared — and the same
