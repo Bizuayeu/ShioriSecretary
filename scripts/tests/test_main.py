@@ -1675,9 +1675,9 @@ def test_orientation_accepts_artifacts_latest(env_ready, capsys):
 
 def test_knowledge_search_parser_entry(env_ready, capsys):
     """`knowledge search --query` が parser を通り、空表でも 0 matches で exit 0。"""
-    rc = main(["knowledge", "search", "--query", "気学", "--query", "配点", "--any"])
+    rc = main(["knowledge", "search", "--query", "精算", "--query", "新基準", "--any"])
     assert rc == EXIT_OK
-    assert "(0 matches of 0 records, query: 気学 OR 配点," in capsys.readouterr().out
+    assert "(0 matches of 0 records, query: 精算 OR 新基準," in capsys.readouterr().out
 
 
 def test_wal_append_accepts_outbound_kind(env_ready):

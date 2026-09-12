@@ -1570,7 +1570,9 @@ def test_knowledge_search_finds_by_content_and_prints_index_lines(tmp_path, caps
         {**_KNOWLEDGE, "id": "K-002", "topic": "台帳", "content": "先頭が腐る"},
     )
     capsys.readouterr()
-    rc = run_registry_command(config, "knowledge", "search", _search_ns(query=["新基準"]))
+    rc = run_registry_command(
+        config, "knowledge", "search", _search_ns(query=["新基準"])
+    )
     assert rc == 0
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
