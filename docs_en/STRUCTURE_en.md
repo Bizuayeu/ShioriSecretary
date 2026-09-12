@@ -114,8 +114,9 @@ ShioriSecretary/
 │   │   ├── proactive_send.py    # proactive send (a sister UseCase to send-reply with the OffsetStore dependency removed, offset-noninterfering)
 │   │   ├── outbound.py       # pre-send guards shared by send-reply / proactive-send (lease re-verification, attachment validation)
 │   │   ├── download_authorized_media.py / render_authorized_media.py
+│   │   ├── knowledge_search.py # read-only search over knowledge (NFKC- and case-insensitive substring matching, AND/OR; the already-recorded check, v1.17.0)
 │   │   ├── manage_registry.py # registry CRUD UseCase
-│   │   ├── orientation.py    # projection for the startup digest (a prescription per table: caps on the long-text field for the 4 capped tables, one-line indexes and count narrowing for the 4 index-side tables, category/subject narrowing, notes tail, handoff selection, last-confirmed-outbound line [a WAL projection], DESIGN §3.12)
+│   │   ├── orientation.py    # projection for the startup digest (a prescription per table: caps on the long-text field for the 4 capped tables, one-line indexes and count narrowing for the 4 index-side tables, category/subject narrowing, notes tail, handoff selection, last-confirmed-outbound line [a WAL projection], the artifacts index [grouped by the task id token in the path, active groups only, v1.17.0], DESIGN §3.12)
 │   │   ├── registry_sync.py  # git persistence of registries (event-driven commit&push via GitSyncPort, DESIGN §3.6)
 │   │   └── wal.py            # WAL UseCase (AppendWalIntent / PushWalLog / RedoPendingIntents [validate injected as a required argument; a failed intent is quarantined as dead] / SettleOutboundIntent / DropDeadIntent)
 │   ├── adapters/

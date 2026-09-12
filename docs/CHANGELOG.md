@@ -4,6 +4,64 @@
 
 > **ShioriSecretary** — Claude のモデル（Opus/Fable/Mythos）に挟む"魔法の栞"。モデルに秘書を授ける、サブスクだけ・専用サーバ不要のサーバーレス秘書エージェントの変更履歴。
 
+## [1.17.0] - 2026-09-12 — 監査証跡と採択済みの読み口を揃える（成果物索引と knowledge の検索口）
+
+tasks の `notes` は追記のみで撤回を書かない**監査証跡**なので、置き換えられた基準が断定形のまま
+残る。一方、採択された結論は `artifacts/` の成果物にあるのに、起動時の射影に載るのは `notes` の
+側だけだった——分けて置いてあっても、読み手は監査証跡の側に落ちる（母体運用で、notes の古い基準を
+成果物より先に読んで答え、後から訂正する事故が出た）。同じ頃、新しい知見を焼く前の既出照合にも
+検索の口が無く、語を並べた部分文字列走査を秘書が自前で全件に書く形になっていた——件数が増えるほど
+この手作業が結晶化の律速になる。本版は読み口を二つ足す。
+
+### Added
+
+- **`orientation` の tasks.notes 直後に `## artifacts` 節（タスクごとの成果物索引、名前だけ）** —
+  `artifacts/` 配下を再帰列挙（`handoff/` は申し送りの節が別に読むので除く）し、パス中のタスク id
+  トークン（`t0007/` のディレクトリ・`_t0013_` のファイル名成分。英数字に挟まれた形は拾わない、
+  最初のトークンで束ねる）で群にする。名前を並べるのは **active タスクの群だけ**（tasks.notes と
+  同じ規約。各群は basename 降順＝名前の日付が新しい順、`--artifacts-latest N` で群ごとに頭打ち・
+  見出しに `latest N of M files`）、active 以外の群と untagged は `other: <群> N, untagged N` の
+  一行に畳む。active なのに成果物が無い群も `0 files` で載せる（無いことも判断材料——成果物が
+  無ければ notes の値しか無いと分かる）。**中身は開かない**（パスの列挙だけ。退行テストで
+  `Path.open` 不在を固定）。配置が tasks.notes の直後なのは、「notes から引いた値を外へ出す前に
+  採択済みの成果物を見る」読み順を配置で作るため
+- **`knowledge search --query Q [--query Q2] [--any] [--category C] [--subject S] [--limit N] [--topic-width N]`** —
+  read-only の検索口（git にも sync にも触れない）。id / subjects / topic / content に対する
+  部分文字列一致で、両側を NFKC → casefold に正規化してから照合する（「ＬＬＭ」と「llm」を
+  別語にすると既出照合が表記揺れで空振りし、重複を焼く側に倒れる）。複数 `--query` は既定
+  AND（精査向き）、`--any` で OR（同義語を並べた既出照合向き）。絞りの順は
+  category → subject → query → limit（orientation の索引と同じ合成順）。出力は索引行
+  （`id | subjects | topic`、content は載せない——当たりを付けて `get --key` で本文を引く
+  読み筋は orientation と同じ）で、見出しに `N matches of M records` と合成則を開示、0 件でも
+  exit 0（観測であって検証ではない）。`--query` 無しと knowledge 以外の表は exit 2。総バイトを
+  stderr に `knowledge search: N bytes` として申告し、`ORIENTATION_WARNING_BYTES`（25,600）超は
+  退避の可能性と絞り方を警告する（一般語で数百件当たれば索引行でも退避圏に入る）。UseCase は
+  `search_knowledge`（純関数、`usecases/knowledge_search.py`）、配線は `registry_cli._search_knowledge`
+- **テスト** — `test_orientation.py`（トークン抽出・群の並び・active のみ列挙・latest 0・配置）、
+  `test_knowledge_search.py`（content 一致・NFKC/大小・AND/OR・空語は 0 件・入力順と複製）、
+  `test_registry_cli.py`（handoff 除外・不在 no-op・**成果物を開かない**・search の見出し開示／
+  exit 2 条件／sync 不発／閾値超警告）、`test_main.py`（両ノブの parser 入口）
+
+### Changed
+
+- **ROUTINE_PROMPT Step 5 に二つの読み筋を足した** — 項目 10 の節列挙に `## artifacts` を加え、
+  併用例のノブに `--artifacts-latest <N>` を、ノブ列挙に `--artifacts-latest` を足した。表ごとの
+  読み方には artifacts の項を新設し、「notes から引いた値を外へ出す前に成果物索引を見る」を
+  body 側に置いた（DESIGN §3.12 の上流配置——秘書が knowledge に書いた規律は下流ゆえ、それだけ
+  では効かない）。knowledge の項と Step 11 の結晶化手順には「焼く前に `knowledge search` で
+  既出照合してから add」を足した。**幅の採用値は配布物では決めない**——自分のデータの
+  `orientation digest: N bytes` で校正する（母体運用では artifacts 節を足す分だけ knowledge の
+  索引件数を下げて校正した）
+
+### Notes
+
+- **稼働 body への波及**: コード（CLI）は配布元 main に入った次の枠から効くが、ROUTINE_PROMPT
+  本文の再登録は別途要る。`--artifacts-latest` を呼ぶ body を先に登録すると旧コードの枠が
+  argparse エラーで落ちる——**順序はコードを先、body 再登録を後**
+- 成果物の命名にタスク id を含めるのは秘書が自然発生させた規約（`t0007/`・`drafts/…_t0013_…`）で、
+  本版はそれを読むだけ（DESIGN §3.10「標準化するのは置き場と命名だけ」の範囲）。トークンの無い
+  legacy な平置きは untagged として件数だけ載る
+
 ## [1.16.0] - 2026-09-11 — 決定論の問いはダイジェストが答える（outbound の最終送信確定行）
 
 「今日の定時送信（日報など）はもう出したか」を判定するのに、起動のたび `WAL.jsonl` を開いて

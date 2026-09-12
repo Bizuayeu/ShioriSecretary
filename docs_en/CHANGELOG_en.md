@@ -4,6 +4,79 @@ All notable changes are recorded in this file. The format follows [Keep a Change
 
 > **ShioriSecretary** — a "magic bookmark" you slip into a Claude model (Opus/Fable/Mythos). The changelog of a serverless secretary agent that grants a secretary to any Claude model — subscription-only, no dedicated server required.
 
+## [1.17.0] - 2026-09-12 — aligning the reading paths of the audit trail and of what was adopted (a deliverables index and a search mouth for knowledge)
+
+The `notes` of a task are append-only and never record a retraction, so a criterion that has been
+superseded stays there in the assertive form. The adopted conclusion, meanwhile, lives in the
+deliverables under `artifacts/` — yet only the `notes` side appeared in the startup projection. Even
+when the two are stored separately, the reader falls to the audit-trail side (in the upstream
+deployment this produced an incident: an old criterion in notes was read before the deliverable,
+answered from, and corrected afterwards). Around the same time, checking whether a new insight was
+already recorded had no search mouth either, so the secretary wrote its own substring scan over every
+record with a list of words — and the larger the population, the more that manual pass becomes the
+rate limiter of crystallization. This release adds two reading paths.
+
+### Added
+
+- **`## artifacts` right after tasks.notes in `orientation` (a per-task deliverables index, names only)** —
+  enumerates the files under `artifacts/` recursively (`handoff/` is excluded, since the handover
+  section reads it separately) and groups them by the task id token in the path (a `t0007/` directory
+  component, a `_t0013_` file-name component; a form flanked by alphanumerics is not taken, and the
+  first token wins). Names are listed **only for the groups of active tasks** (the same convention as
+  tasks.notes; each group is sorted by basename descending = newest date in the name first, capped per
+  group by `--artifacts-latest N`, with `latest N of M files` in the heading), and the non-active
+  groups and the untagged files collapse into the one line `other: <group> N, untagged N`. An active
+  task with no deliverables is still listed as `0 files` (the absence is also material — if there is
+  no deliverable, you know that only the value in notes exists). **The contents are never opened**
+  (paths only; a regression test pins the absence of `Path.open`). Its placement right after
+  tasks.notes exists to build, by placement, the reading order "before taking a value out of notes to
+  the outside, look at the adopted deliverable"
+- **`knowledge search --query Q [--query Q2] [--any] [--category C] [--subject S] [--limit N] [--topic-width N]`** —
+  a read-only search mouth (it touches neither git nor sync). It matches substrings against
+  id / subjects / topic / content, normalizing both sides with NFKC → casefold before comparing (if
+  "ＬＬＭ" and "llm" were different words, the already-recorded check would miss on a notation variant
+  and fall to the side of burning a duplicate). Multiple `--query` values are AND by default (for
+  scrutiny), `--any` makes them OR (for an already-recorded check with synonyms lined up). The
+  narrowing order is category → subject → query → limit (the same composition order as the
+  orientation index). The output is index rows (`id | subjects | topic`; content is not included —
+  the reading path of getting a lead and then pulling the body with `get --key` is the same as in
+  orientation), the heading discloses `N matches of M records` and the composition rule, and zero
+  matches still exit 0 (a search is an observation, not a verification). A missing `--query` and any
+  table other than knowledge exit 2. The total byte size is declared on stderr as
+  `knowledge search: N bytes`, and above `ORIENTATION_WARNING_BYTES` (25,600) it warns about the
+  diversion risk and how to narrow (a common word matching hundreds of records enters the diversion
+  zone even as index rows). The UseCase is `search_knowledge` (a pure function,
+  `usecases/knowledge_search.py`); the wiring is `registry_cli._search_knowledge`
+- **Tests** — `test_orientation.py` (token extraction, group ordering, active-only listing, latest 0,
+  placement), `test_knowledge_search.py` (content match, NFKC/case, AND/OR, an empty word yields 0,
+  input order and duplicates), `test_registry_cli.py` (handoff exclusion, no-op when absent,
+  **never opening a deliverable**, the search heading disclosure / exit 2 conditions / no sync /
+  the over-threshold warning), `test_main.py` (the parser entry of both knobs)
+
+### Changed
+
+- **Two reading paths added to ROUTINE_PROMPT Step 5** — `## artifacts` joins the section list of
+  item 10, `--artifacts-latest <N>` joins the combined-narrowing example, and `--artifacts-latest`
+  joins the knob enumeration. A new artifacts entry was added to the per-table reading guide, and
+  "before taking a value out of notes to the outside, look at the deliverables index" was placed in
+  the body (the upstream placement of DESIGN §3.12 — a discipline the secretary wrote into knowledge
+  is downstream, so it does not take effect on its own). The knowledge entry and the crystallization
+  procedure of Step 11 now say to "check with `knowledge search` before burning, then add". **The
+  adopted widths are not decided in the distribution** — calibrate them against your own
+  `orientation digest: N bytes` (in the upstream deployment the knowledge index count was lowered by
+  as much as the artifacts section adds)
+
+### Notes
+
+- **Reaching the live body**: the code (the CLI) is live from the first session after it lands on the
+  distribution's main, but the ROUTINE_PROMPT wording needs a separate body re-registration.
+  Registering a body that calls `--artifacts-latest` first makes a session on the old code die on an
+  argparse error — **the order is code first, body re-registration second**
+- Including the task id in a deliverable's name is a convention the secretary produced on its own
+  (`t0007/`, `drafts/…_t0013_…`), and this release merely reads it (within DESIGN §3.10 "all that is
+  standardized is where it lives and what it is named"). Legacy files lying flat without a token
+  appear as the untagged count only
+
 ## [1.16.0] - 2026-09-11 — a deterministic question is answered by the digest (the last-confirmed-outbound line)
 
 To decide "has today's scheduled send (e.g. the daily report) already gone out?", every startup
