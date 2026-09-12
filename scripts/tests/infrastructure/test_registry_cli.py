@@ -1566,20 +1566,20 @@ def test_knowledge_search_finds_by_content_and_prints_index_lines(tmp_path, caps
     config = _config(tmp_path)
     _seed_knowledge(
         config,
-        {**_KNOWLEDGE, "id": "K-001", "topic": "気学", "content": "配点で読む"},
+        {**_KNOWLEDGE, "id": "K-001", "topic": "精算", "content": "新基準で読む"},
         {**_KNOWLEDGE, "id": "K-002", "topic": "台帳", "content": "先頭が腐る"},
     )
     capsys.readouterr()
-    rc = run_registry_command(config, "knowledge", "search", _search_ns(query=["配点"]))
+    rc = run_registry_command(config, "knowledge", "search", _search_ns(query=["新基準"]))
     assert rc == 0
     captured = capsys.readouterr()
     lines = captured.out.splitlines()
     assert lines[0] == (
-        "## knowledge search (1 matches of 2 records, query: 配点, "
+        "## knowledge search (1 matches of 2 records, query: 新基準, "
         "index: id | subjects | topic)"
     )
-    assert lines[1].startswith("K-001 | - | 気学")
-    assert "先頭が腐る" not in captured.out and "配点で読む" not in captured.out
+    assert lines[1].startswith("K-001 | - | 精算")
+    assert "先頭が腐る" not in captured.out and "新基準で読む" not in captured.out
     assert "knowledge search: " in captured.err and "bytes" in captured.err
 
 
@@ -1587,27 +1587,27 @@ def test_knowledge_search_and_or_limit_and_scope_are_disclosed(tmp_path, capsys)
     config = _config(tmp_path)
     _seed_knowledge(
         config,
-        {**_KNOWLEDGE, "id": "K-001", "topic": "気学 配点", "category": "method"},
-        {**_KNOWLEDGE, "id": "K-002", "topic": "気学 比和", "category": "method"},
-        {**_KNOWLEDGE, "id": "K-003", "topic": "気学 配点", "category": "harness"},
+        {**_KNOWLEDGE, "id": "K-001", "topic": "精算 新基準", "category": "method"},
+        {**_KNOWLEDGE, "id": "K-002", "topic": "精算 旧基準", "category": "method"},
+        {**_KNOWLEDGE, "id": "K-003", "topic": "精算 新基準", "category": "harness"},
     )
     capsys.readouterr()
     rc = run_registry_command(
-        config, "knowledge", "search", _search_ns(query=["気学", "配点"])
+        config, "knowledge", "search", _search_ns(query=["精算", "新基準"])
     )
     assert rc == 0
-    assert "(2 matches of 3 records, query: 気学 AND 配点," in capsys.readouterr().out
+    assert "(2 matches of 3 records, query: 精算 AND 新基準," in capsys.readouterr().out
     rc = run_registry_command(
         config,
         "knowledge",
         "search",
-        _search_ns(query=["配点", "比和"], any=True, category="method", limit=1),
+        _search_ns(query=["新基準", "旧基準"], any=True, category="method", limit=1),
     )
     assert rc == 0
     out = capsys.readouterr().out
     assert (
         "(latest 1 of 2 matches of 2 records, newest last, category=method, "
-        "query: 配点 OR 比和," in out
+        "query: 新基準 OR 旧基準," in out
     )
     assert "K-002" in out and "K-001" not in out
 

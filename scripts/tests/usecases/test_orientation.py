@@ -1199,7 +1199,7 @@ from usecases.orientation import (  # noqa: E402
 
 
 def test_task_token_reads_directory_and_filename_forms():
-    assert task_token("t0007/20260912_candidate5_per_horse.html") == "T0007"
+    assert task_token("t0007/20260912_summary_v2.html") == "T0007"
     assert task_token("drafts/20260912_t0005_daily_report.md") == "T0005"
     assert task_token("T0013/x.md") == "T0013"
 
